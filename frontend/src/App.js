@@ -7,11 +7,18 @@ import Dashboard from "@/pages/Dashboard";
 import Log from "@/pages/Log";
 import Review from "@/pages/Review";
 import Settings from "@/pages/Settings";
+import useDailyReminder from "@/hooks/useDailyReminder";
+
+function ReminderMount() {
+  useDailyReminder();
+  return null;
+}
 
 function App() {
   return (
     <div className="App">
       <AppProvider>
+        <ReminderMount />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Layout />}>

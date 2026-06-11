@@ -1,9 +1,7 @@
-import { useMemo } from "react";
 import { useApp } from "../../context/AppContext";
 import { startOfWeek, endOfWeek, startOfLastWeek, isInRange, isSameDay } from "../../lib/dateUtils";
 import { TrendingUp, TrendingDown, Minus, Target } from "lucide-react";
-
-const WEEKLY_GOAL_MIN = 20 * 60; // 20 hours
+import { useMemo } from "react";
 
 function formatHM(totalMinutes) {
   const m = Math.max(0, Math.round(totalMinutes));
@@ -21,7 +19,8 @@ function formatHMSigned(totalMinutes) {
 }
 
 export default function TimeView() {
-  const { entries } = useApp();
+  const { entries, settings } = useApp();
+  const WEEKLY_GOAL_MIN = settings.weeklyGoalMinutes || 20 * 60;
 
   const data = useMemo(() => {
     const weekStart = startOfWeek();
@@ -62,7 +61,7 @@ export default function TimeView() {
       goalPct,
       diff,
     };
-  }, [entries]);
+  }, [entries, WEEKLY_GOAL_MIN]);
 
   const trendIcon =
     data.diff > 0 ? (

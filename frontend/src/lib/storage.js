@@ -1,6 +1,14 @@
 // localStorage helpers for CBE Life Scoreboard
 const ENTRIES_KEY = "cbe.entries.v1";
 const ACTIONS_KEY = "cbe.actions.v1";
+const SETTINGS_KEY = "cbe.settings.v1";
+
+export const DEFAULT_SETTINGS = {
+  weeklyGoalMinutes: 20 * 60, // 20 hours
+  reminderEnabled: false,
+  reminderTime: "20:00", // 8pm
+  lastReminderDate: null, // YYYY-MM-DD
+};
 
 export const DEFAULT_ACTIONS = [
   {
@@ -126,6 +134,21 @@ export function loadActions() {
 
 export function saveActions(actions) {
   localStorage.setItem(ACTIONS_KEY, JSON.stringify(actions));
+}
+
+export function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_SETTINGS };
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_SETTINGS, ...parsed };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+export function saveSettings(settings) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
 export function generateId() {

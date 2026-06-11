@@ -4,6 +4,8 @@ import {
   saveEntries,
   loadActions,
   saveActions,
+  loadSettings,
+  saveSettings,
   generateId,
 } from "../lib/storage";
 import { todayISO, nowTimeHHMM } from "../lib/dateUtils";
@@ -13,6 +15,7 @@ const AppContext = createContext(null);
 export function AppProvider({ children }) {
   const [entries, setEntries] = useState(() => loadEntries());
   const [actions, setActions] = useState(() => loadActions());
+  const [settings, setSettings] = useState(() => loadSettings());
   const [lastDeleted, setLastDeleted] = useState(null);
 
   useEffect(() => {
@@ -22,6 +25,14 @@ export function AppProvider({ children }) {
   useEffect(() => {
     saveActions(actions);
   }, [actions]);
+
+  useEffect(() => {
+    saveSettings(settings);
+  }, [settings]);
+
+  const updateSettings = useCallback((patch) => {
+    setSettings((prev) => ({ ...prev, ...patch }));
+  }, []);
 
   const logAction = useCallback((action) => {
     const entry = {
@@ -79,6 +90,8 @@ export function AppProvider({ children }) {
     () => ({
       entries,
       actions,
+      settings,
+      updateSettings,
       logAction,
       deleteEntry,
       restoreEntry,
@@ -88,7 +101,7 @@ export function AppProvider({ children }) {
       updateAction,
       deleteAction,
     }),
-    [entries, actions, logAction, deleteEntry, restoreEntry, undoLastEntry, undoDelete, addAction, updateAction, deleteAction],
+    [entries, actions, settings, updateSettings, logAction, deleteEntry, restoreEntry, undoLastEntry, undoDelete, addAction, updateAction, deleteAction],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

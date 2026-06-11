@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import ProgressBar from "../components/ProgressBar";
+import Heatmap from "../components/Heatmap";
 import { startOfWeek, endOfWeek, startOfLastWeek, formatWeekRange, isInRange } from "../lib/dateUtils";
 import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 
@@ -234,6 +235,9 @@ export default function Review() {
           </div>
         </div>
       </section>
+
+      {/* 90-day Heatmap */}
+      <Heatmap entries={entries} />
     </div>
   );
 }

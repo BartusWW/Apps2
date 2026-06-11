@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
-import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Target, Bell, BellOff } from "lucide-react";
 
 const DEFAULT_CATEGORIES = [
   "PT Study",
@@ -133,12 +133,53 @@ function ActionForm({ initial, onSave, onCancel, submitLabel = "Save", testIdPre
 }
 
 export default function Settings() {
-  const { actions, addAction, updateAction, deleteAction } = useApp();
+  const { actions, addAction, updateAction, deleteAction, settings, updateSettings } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [goalHours, setGoalHours] = useState(
+    String(((settings.weeklyGoalMinutes || 1200) / 60).toFixed(1).replace(/\.0$/, "")),
+  );
 
   const positiveActions = actions.filter((a) => a.type === "positive");
   const negativeActions = actions.filter((a) => a.type === "negative");
+
+  const saveGoal = () => {
+    const hrs = Number(goalHours);
+    if (!hrs || hrs <= 0) {
+      toast("Goal must be > 0 hours", { className: "!bg-neutral-900 !border-red-500/30 !text-white" });
+      return;
+    }
+    updateSettings({ weeklyGoalMinutes: Math.round(hrs * 60) });
+    toast(`Weekly goal set to ${hrs}h`, { className: "!bg-neutral-900 !border-sky-500/30 !text-white" });
+  };
+
+  const toggleReminder = async () => {
+    if (settings.reminderEnabled) {
+      updateSettings({ reminderEnabled: false });
+      toast("Daily reminder disabled", { className: "!bg-neutral-900 !border-white/10 !text-white" });
+      return;
+    }
+    if (typeof Notification === "undefined") {
+      toast("Notifications not supported in this browser", {
+        className: "!bg-neutral-900 !border-red-500/30 !text-white",
+      });
+      return;
+    }
+    let perm = Notification.permission;
+    if (perm === "default") {
+      perm = await Notification.requestPermission();
+    }
+    if (perm !== "granted") {
+      toast("Notification permission denied. Enable it in your browser settings.", {
+        className: "!bg-neutral-900 !border-red-500/30 !text-white",
+      });
+      return;
+    }
+    updateSettings({ reminderEnabled: true, lastReminderDate: null });
+    toast(`Daily reminder set for ${settings.reminderTime}`, {
+      className: "!bg-neutral-900 !border-emerald-500/30 !text-white",
+    });
+  };
 
   const renderRow = (a) => {
     if (editingId === a.id) {
@@ -264,6 +305,97 @@ export default function Settings() {
             <p className="text-sm text-neutral-500">No negative actions.</p>
           )}
         </ul>
+      </section>
+
+      {/* Preferences */}
+      <section data-testid="preferences-section" className="space-y-3 pt-2">
+        <h2 className="text-[10px] uppercase tracking-[0.18em] text-sky-400 font-semibold mb-1">
+          Preferences
+        </h2>
+
+        {/* Weekly goal */}
+        <div className="bg-neutral-900 border border-white/10 rounded-xl p-4 space-y-3" data-testid="weekly-goal-setting">
+          <div className="flex items-center gap-2">
+            <Target size={14} className="text-sky-400" />
+            <p className="text-sm font-semibold text-white">Weekly Development Goal</p>
+          </div>
+          <p className="text-xs text-neutral-400">
+            Target hours for the Time view progress bar.
+          </p>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                Hours per week
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="0.5"
+                value={goalHours}
+                onChange={(e) => setGoalHours(e.target.value)}
+                data-testid="weekly-goal-input"
+                className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500/50"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={saveGoal}
+              data-testid="weekly-goal-save-btn"
+              className="text-xs uppercase tracking-widest font-semibold px-3.5 py-2 rounded-lg bg-sky-500 text-black hover:bg-sky-400"
+            >
+              Save
+            </button>
+          </div>
+          <p className="text-[10px] uppercase tracking-widest text-neutral-500">
+            Current: {(settings.weeklyGoalMinutes / 60).toFixed(1)}h / week
+          </p>
+        </div>
+
+        {/* Daily reminder */}
+        <div className="bg-neutral-900 border border-white/10 rounded-xl p-4 space-y-3" data-testid="reminder-setting">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {settings.reminderEnabled ? (
+                <Bell size={14} className="text-emerald-400" />
+              ) : (
+                <BellOff size={14} className="text-neutral-500" />
+              )}
+              <p className="text-sm font-semibold text-white">Daily Reminder</p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleReminder}
+              data-testid="reminder-toggle-btn"
+              className={`text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                settings.reminderEnabled
+                  ? "bg-emerald-500 text-black border-emerald-500"
+                  : "border-white/15 text-neutral-300 hover:bg-white/5"
+              }`}
+            >
+              {settings.reminderEnabled ? "On" : "Off"}
+            </button>
+          </div>
+          <p className="text-xs text-neutral-400">
+            Browser notification nudge if you haven’t logged a dev session by your set time.
+            <span className="block mt-1 text-neutral-500">
+              Note: only fires while the CBE tab is open.
+            </span>
+          </p>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+              Reminder time
+            </label>
+            <input
+              type="time"
+              value={settings.reminderTime}
+              onChange={(e) =>
+                updateSettings({ reminderTime: e.target.value, lastReminderDate: null })
+              }
+              data-testid="reminder-time-input"
+              className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
+            />
+          </div>
+        </div>
       </section>
     </div>
   );
