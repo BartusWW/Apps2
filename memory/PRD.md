@@ -41,6 +41,13 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - Whoop-style dark theme: `#0A0A0A` bg, neutral-900 cards, emerald + red accents, Barlow Condensed display numerals
 - Mobile-first with bottom-nav (4 tabs) and `max-w-md` container
 
+## Implemented (2026-02-11 — Update 2: Score/Time Carousel)
+- Swipeable Embla carousel at top of Dashboard with two views: SCORE & TIME
+- Pill toggle (emerald=Score, sky=Time) + dot indicator both color-shift on active view
+- SCORE VIEW: existing today/weekly score, Build vs Drain card (includes streak + dev hours), Best Category, Top Drain
+- TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
+- Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
+
 ## Backlog
 ### P1
 - PWA install + offline support (manifest + service worker)
