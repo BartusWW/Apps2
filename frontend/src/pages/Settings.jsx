@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
-import { Plus, Trash2, Pencil, Check, X, Target, Bell, BellOff, PieChart as PieChartIcon } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Target, Bell, BellOff, PieChart as PieChartIcon, Download } from "lucide-react";
+import { onInstallAvailability, promptInstall } from "../lib/pwa";
 
 const DEFAULT_CATEGORIES = [
   "PT Study",
@@ -313,6 +314,8 @@ export default function Settings() {
           Preferences
         </h2>
 
+        <InstallAppCard />
+
         {/* Weekly goal */}
         <div className="bg-neutral-900 border border-white/10 rounded-xl p-4 space-y-3" data-testid="weekly-goal-setting">
           <div className="flex items-center gap-2">
@@ -408,8 +411,74 @@ export default function Settings() {
   );
 }
 
-function AllocationTargetsEditor({ actions, targets, onChange }) {
-  const positiveCategories = Array.from(
+function InstallAppCard() {
+  const [available, setAvailable] = useState(false);
+  const [installed, setInstalled] = useState(
+    typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(display-mode: standalone)").matches,
+  );
+
+  useEffect(() => {
+    const off = onInstallAvailability(setAvailable);
+    return () => off();
+  }, []);
+
+  const handleInstall = async () => {
+    const res = await promptInstall();
+    if (res?.outcome === "accepted") {
+      setInstalled(true);
+      toast("App installed", { className: "!bg-neutral-900 !border-emerald-500/30 !text-white" });
+    } else if (res?.outcome === "unavailable") {
+      toast("Install prompt not available. On iOS: Share → Add to Home Screen.", {
+        className: "!bg-neutral-900 !border-white/10 !text-white",
+      });
+    }
+  };
+
+  if (installed) {
+    return (
+      <div
+        className="bg-neutral-900 border border-emerald-500/30 rounded-xl p-4 flex items-center gap-3"
+        data-testid="install-card-installed"
+      >
+        <Check size={16} className="text-emerald-400 shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-white">Installed as PWA</p>
+          <p className="text-xs text-neutral-400 mt-0.5">
+            Launches like a native app from your home screen. Works offline.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-neutral-900 border border-white/10 rounded-xl p-4 space-y-3" data-testid="install-card">
+      <div className="flex items-center gap-2">
+        <Download size={14} className="text-emerald-400" />
+        <p className="text-sm font-semibold text-white">Install on Device</p>
+      </div>
+      <p className="text-xs text-neutral-400">
+        Add CBE Scoreboard to your home screen for a native-app feel and offline access.
+        <span className="block mt-1 text-neutral-500">
+          iOS Safari: tap Share → “Add to Home Screen”. Android Chrome: tap the button below or the browser menu.
+        </span>
+      </p>
+      <button
+        type="button"
+        onClick={handleInstall}
+        disabled={!available}
+        data-testid="install-app-btn"
+        className="w-full text-xs uppercase tracking-widest font-semibold px-3 py-2.5 rounded-lg bg-emerald-500 text-black hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {available ? "Install App" : "Install Unavailable Here"}
+      </button>
+    </div>
+  );
+}
+
+function AllocationTargetsEditor({ actions, targets, onChange }) {  const positiveCategories = Array.from(
     new Set(actions.filter((a) => a.type === "positive").map((a) => a.category)),
   );
 
