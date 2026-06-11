@@ -67,7 +67,7 @@ export default function Dashboard() {
       className:
         action.type === "positive"
           ? "!bg-neutral-900 !border-emerald-500/30 !text-white"
-          : "!bg-neutral-900 !border-red-500/30 !text-white",
+          : "!bg-neutral-900 !border-red-500/40 !text-white",
     });
   };
 

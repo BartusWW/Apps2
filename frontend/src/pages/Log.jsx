@@ -27,7 +27,7 @@ function downloadCSV(entries) {
 }
 
 export default function Log() {
-  const { entries, deleteEntry, undoDelete } = useApp();
+  const { entries, deleteEntry, restoreEntry } = useApp();
 
   const grouped = useMemo(() => {
     const byDate = {};
@@ -44,7 +44,7 @@ export default function Log() {
       description: `${entry.actionName} (${entry.points > 0 ? "+" : ""}${entry.points})`,
       action: {
         label: "Undo",
-        onClick: () => undoDelete(),
+        onClick: () => restoreEntry(entry),
       },
       className: "!bg-neutral-900 !border-white/10 !text-white",
     });

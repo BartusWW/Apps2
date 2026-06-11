@@ -26,9 +26,6 @@ function App() {
           theme="dark"
           position="top-center"
           richColors={false}
-          toastOptions={{
-            className: "!bg-neutral-900 !border !border-white/10 !text-white",
-          }}
         />
       </AppProvider>
     </div>

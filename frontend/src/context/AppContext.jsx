@@ -46,6 +46,10 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  const restoreEntry = useCallback((entry) => {
+    setEntries((prev) => [entry, ...prev]);
+  }, []);
+
   const undoDelete = useCallback(() => {
     if (lastDeleted) {
       setEntries((prev) => [lastDeleted, ...prev]);
@@ -77,13 +81,14 @@ export function AppProvider({ children }) {
       actions,
       logAction,
       deleteEntry,
+      restoreEntry,
       undoLastEntry,
       undoDelete,
       addAction,
       updateAction,
       deleteAction,
     }),
-    [entries, actions, logAction, deleteEntry, undoLastEntry, undoDelete, addAction, updateAction, deleteAction],
+    [entries, actions, logAction, deleteEntry, restoreEntry, undoLastEntry, undoDelete, addAction, updateAction, deleteAction],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
