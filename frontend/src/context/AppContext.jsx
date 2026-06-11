@@ -6,6 +6,8 @@ import {
   saveActions,
   loadSettings,
   saveSettings,
+  loadNotes,
+  saveNotes,
   generateId,
 } from "../lib/storage";
 import { todayISO, nowTimeHHMM } from "../lib/dateUtils";
@@ -16,6 +18,7 @@ export function AppProvider({ children }) {
   const [entries, setEntries] = useState(() => loadEntries());
   const [actions, setActions] = useState(() => loadActions());
   const [settings, setSettings] = useState(() => loadSettings());
+  const [notes, setNotes] = useState(() => loadNotes());
   const [lastDeleted, setLastDeleted] = useState(null);
 
   useEffect(() => {
@@ -30,8 +33,26 @@ export function AppProvider({ children }) {
     saveSettings(settings);
   }, [settings]);
 
+  useEffect(() => {
+    saveNotes(notes);
+  }, [notes]);
+
   const updateSettings = useCallback((patch) => {
     setSettings((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const updateWeeklyNote = useCallback((key, patch) => {
+    setNotes((prev) => ({
+      ...prev,
+      weekly: { ...prev.weekly, [key]: { ...prev.weekly[key], ...patch } },
+    }));
+  }, []);
+
+  const updateMonthlyNote = useCallback((key, patch) => {
+    setNotes((prev) => ({
+      ...prev,
+      monthly: { ...prev.monthly, [key]: { ...prev.monthly[key], ...patch } },
+    }));
   }, []);
 
   const logAction = useCallback((action) => {
@@ -91,7 +112,10 @@ export function AppProvider({ children }) {
       entries,
       actions,
       settings,
+      notes,
       updateSettings,
+      updateWeeklyNote,
+      updateMonthlyNote,
       logAction,
       deleteEntry,
       restoreEntry,
@@ -101,7 +125,7 @@ export function AppProvider({ children }) {
       updateAction,
       deleteAction,
     }),
-    [entries, actions, settings, updateSettings, logAction, deleteEntry, restoreEntry, undoLastEntry, undoDelete, addAction, updateAction, deleteAction],
+    [entries, actions, settings, notes, updateSettings, updateWeeklyNote, updateMonthlyNote, logAction, deleteEntry, restoreEntry, undoLastEntry, undoDelete, addAction, updateAction, deleteAction],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

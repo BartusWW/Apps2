@@ -84,3 +84,66 @@ export function calcStudyStreak(entries) {
   }
   return streak;
 }
+
+// ----- Month / Week-Key helpers -----
+
+export function startOfMonth(date = new Date()) {
+  const d = new Date(date);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function endOfMonth(date = new Date()) {
+  const d = startOfMonth(date);
+  d.setMonth(d.getMonth() + 1);
+  return d;
+}
+
+export function startOfLastMonth(date = new Date()) {
+  const d = startOfMonth(date);
+  d.setMonth(d.getMonth() - 1);
+  return d;
+}
+
+export function monthKey(date = new Date()) {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+export function formatMonth(date = new Date()) {
+  return new Date(date).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+// ISO week key — YYYY-Www where week starts Monday
+export function weekKey(date = new Date()) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  // ISO week calc: Thursday in current week decides the year
+  const dayNr = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - dayNr + 3);
+  const firstThursday = new Date(d.getFullYear(), 0, 4);
+  const diff = (d - firstThursday) / 86400000;
+  const week = 1 + Math.round((diff - 3 + ((firstThursday.getDay() + 6) % 7)) / 7);
+  return `${d.getFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+// Iterate all Monday-week starts that overlap with the given month
+export function weeksInMonth(monthAnchor = new Date()) {
+  const mStart = startOfMonth(monthAnchor);
+  const mEnd = endOfMonth(monthAnchor);
+  const result = [];
+  let cursor = startOfWeek(mStart);
+  while (cursor < mEnd) {
+    const wEnd = new Date(cursor);
+    wEnd.setDate(wEnd.getDate() + 7);
+    result.push({ start: new Date(cursor), end: wEnd });
+    cursor = wEnd;
+  }
+  return result;
+}

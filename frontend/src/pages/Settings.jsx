@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
-import { Plus, Trash2, Pencil, Check, X, Target, Bell, BellOff } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Target, Bell, BellOff, PieChart as PieChartIcon } from "lucide-react";
 
 const DEFAULT_CATEGORIES = [
   "PT Study",
@@ -396,7 +396,118 @@ export default function Settings() {
             />
           </div>
         </div>
+
+        {/* Allocation Targets */}
+        <AllocationTargetsEditor
+          actions={actions}
+          targets={settings.allocationTargets || {}}
+          onChange={(next) => updateSettings({ allocationTargets: next })}
+        />
       </section>
+    </div>
+  );
+}
+
+function AllocationTargetsEditor({ actions, targets, onChange }) {
+  const positiveCategories = Array.from(
+    new Set(actions.filter((a) => a.type === "positive").map((a) => a.category)),
+  );
+
+  // Include any extra categories already present in targets (in case the user
+  // removed an action but the target still exists)
+  const allCats = Array.from(new Set([...positiveCategories, ...Object.keys(targets)]));
+
+  const total = Object.values(targets).reduce((s, v) => s + (Number(v) || 0), 0);
+  const totalTone =
+    total === 100
+      ? "text-emerald-400"
+      : total === 0
+        ? "text-neutral-500"
+        : Math.abs(total - 100) <= 5
+          ? "text-amber-400"
+          : "text-red-500";
+
+  const setVal = (cat, raw) => {
+    const num = raw === "" ? 0 : Math.max(0, Math.min(100, Number(raw)));
+    const next = { ...targets, [cat]: num };
+    // Remove zero entries to keep storage tidy
+    if (num === 0) delete next[cat];
+    onChange(next);
+  };
+
+  const autoBalance = () => {
+    if (allCats.length === 0) return;
+    const even = Math.floor(100 / allCats.length);
+    const next = {};
+    allCats.forEach((c, i) => {
+      next[c] = i === allCats.length - 1 ? 100 - even * (allCats.length - 1) : even;
+    });
+    onChange(next);
+  };
+
+  const clearAll = () => onChange({});
+
+  return (
+    <div
+      className="bg-neutral-900 border border-white/10 rounded-xl p-4 space-y-3"
+      data-testid="allocation-targets-setting"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <PieChartIcon size={14} className="text-sky-400" />
+          <p className="text-sm font-semibold text-white">Allocation Targets</p>
+        </div>
+        <span className={`text-xs font-semibold ${totalTone}`} data-testid="allocation-total">
+          {total}%
+        </span>
+      </div>
+      <p className="text-xs text-neutral-400">
+        Ideal % of dev time per category. Used by Monthly Review → Planned vs Actual.
+      </p>
+
+      {allCats.length === 0 ? (
+        <p className="text-sm text-neutral-500">
+          No positive categories yet. Add a positive action above to see allocation rows here.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {allCats.map((cat) => (
+            <li key={cat} className="flex items-center gap-3" data-testid={`allocation-target-${cat}`}>
+              <span className="text-sm text-white flex-1 truncate">{cat}</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={targets[cat] ?? ""}
+                onChange={(e) => setVal(cat, e.target.value)}
+                placeholder="0"
+                data-testid={`allocation-input-${cat}`}
+                className="w-16 bg-neutral-950 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white text-right focus:outline-none focus:border-sky-500/50"
+              />
+              <span className="text-xs text-neutral-500 w-3">%</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={clearAll}
+          data-testid="allocation-clear-btn"
+          className="text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-lg border border-white/15 text-neutral-300 hover:bg-white/5"
+        >
+          Clear
+        </button>
+        <button
+          type="button"
+          onClick={autoBalance}
+          data-testid="allocation-balance-btn"
+          className="text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-lg bg-sky-500 text-black hover:bg-sky-400"
+        >
+          Auto-balance
+        </button>
+      </div>
     </div>
   );
 }

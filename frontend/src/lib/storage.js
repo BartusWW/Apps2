@@ -2,12 +2,14 @@
 const ENTRIES_KEY = "cbe.entries.v1";
 const ACTIONS_KEY = "cbe.actions.v1";
 const SETTINGS_KEY = "cbe.settings.v1";
+const NOTES_KEY = "cbe.notes.v1";
 
 export const DEFAULT_SETTINGS = {
   weeklyGoalMinutes: 20 * 60, // 20 hours
   reminderEnabled: false,
   reminderTime: "20:00", // 8pm
   lastReminderDate: null, // YYYY-MM-DD
+  allocationTargets: {}, // { "BW Strength Systems": 30, "PT Study": 25, ... } percentages
 };
 
 export const DEFAULT_ACTIONS = [
@@ -149,6 +151,24 @@ export function loadSettings() {
 
 export function saveSettings(settings) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+export function loadNotes() {
+  try {
+    const raw = localStorage.getItem(NOTES_KEY);
+    if (!raw) return { weekly: {}, monthly: {} };
+    const parsed = JSON.parse(raw);
+    return {
+      weekly: parsed.weekly && typeof parsed.weekly === "object" ? parsed.weekly : {},
+      monthly: parsed.monthly && typeof parsed.monthly === "object" ? parsed.monthly : {},
+    };
+  } catch {
+    return { weekly: {}, monthly: {} };
+  }
+}
+
+export function saveNotes(notes) {
+  localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
 }
 
 export function generateId() {
