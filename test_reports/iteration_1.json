@@ -1,0 +1,47 @@
+{
+  "summary": "Frontend-only testing of CBE Life Scoreboard (React + localStorage). 25/28 playwright assertions passed. Core flows working: Dashboard score updates, +/- actions, Dev Hours (Published doesn't add hours), Study Streak, Best/Worst category, Log grouping & delete, CSV export enabled gating, Review page sections + net value, Settings add/edit/delete + persistence to dashboard, localStorage persistence after refresh, mobile max-w-md layout, bottom nav 4 tabs, negative auto-sign correction (verified by code review). One real bug found: Undo from delete toast on Log page does NOT restore entry due to stale closure.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Log.jsx handleDelete -> toast Undo",
+        "issue": "Clicking the Undo button in the delete-entry toast does not restore the deleted entry. After delete, count went from 4 to 3 and stayed 3 after Undo click. RCA: toast's onClick closure (`() => undoDelete()`) captures the previous render's undoDelete function whose closure holds stale `lastDeleted = null`. setLastDeleted(target) inside deleteEntry has not flushed by the time toast() is invoked synchronously after.",
+        "selector": "[data-sonner-toast] button:has-text('Undo')",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Global",
+        "issues": ["The Emergent badge anchor (#emergent-badge) intercepts pointer events over the bottom-nav area in some viewport positions, causing Playwright clicks on nav items to be blocked. Real users on mobile may also have a small dead-click region near the badge."]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix Log Undo: capture the deleted entry locally and pass it through the toast handler instead of relying on lastDeleted state. e.g. in Log.jsx handleDelete: store `const removed = entry;` and on Undo call a new setter that re-adds `removed` directly. Or: change deleteEntry to return the removed entry and use it inline in the toast onClick. Or: make the AppContext.deleteEntry accept an onDeleted callback receiving the entry. Simplest: in Log.jsx, after calling deleteEntry(entry.id), inside the toast onClick call a context helper like `restoreEntry(entry)` which directly setEntries((prev)=>[entry,...prev]).",
+    "Consider ensuring z-index of bottom-nav (z-50) is above the Emergent badge to avoid pointer interception over nav-review/nav-settings on small viewports."
+  ],
+  "critical_code_review_comments": [
+    "AppContext.undoDelete relies on `lastDeleted` state captured in useCallback; any caller that reads undoDelete BEFORE setLastDeleted commits will use a stale closure. This is the root cause of the Undo bug. Pattern-wise, prefer passing the deleted item explicitly to the restore function rather than relying on a separate state slot.",
+    "saveEntries/saveActions run on every state change including initial mount; harmless but writes default actions to localStorage on first load (already handled in loadActions). Fine.",
+    "QuickActionButton uses dynamic Icons[action.icon] lookup with no fallback warning when icon name is invalid; falls back to Zap which is fine.",
+    "Toast className uses Tailwind arbitrary-important variants like '!border-red-500/30' but the global Toaster toastOptions also sets '!border-white/10', so the global class wins ordering-wise on negative actions — visual red border may be overridden. Recommend removing the global border class in App.js Toaster toastOptions, or applying per-toast classes via classNames option instead.",
+    "Dashboard 'Best Category' uses positive-only sum (correct), 'Top Drain' uses negative absolute sum (correct).",
+    "calcStudyStreak handles 'today or yesterday' start correctly.",
+    "CSV export disabled correctly when entries empty; downloads on click.",
+    "Settings ActionForm correctly auto-converts sign based on type before saving."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "89% (25/28 assertions; 1 real bug, 2 false positives from test design)"},
+  "test_credentials": "N/A (no auth)",
+  "seed_data_creation": "All test data is local browser localStorage; tests clear it at start. Created 'TEST Custom Action' (+7 / 15m positive) and 'TEST Neg Auto' (-10 negative) during settings tests.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "App is pure client-side localStorage at https://cbe-scoreboard.preview.emergentagent.com. Always page.evaluate('localStorage.clear()') and reload before each independent test. All 10 default actions render with stable testids: positive-action-act-pt-study, act-bw-strength, act-content, act-reading, act-ai-systems, act-published; negative-action-act-scrolling, act-gaming, act-missed-study, act-late-phone. Today's Score renders '+N' when positive, '0' when zero, 'N' (with minus already) when negative. After fixing Undo: retest by going to /log, clicking a delete-entry-* button, then clicking Undo in the [data-sonner-toast] and asserting entry count restored. For toast border color test, query the specific toast by data-content text rather than using .last because Sonner stacks multiple toasts.",
+  "rca of the issue": "Bug: Log page Undo does not restore deleted entry. Reproduce: 1) From Dashboard click any positive action so an entry exists. 2) Go to Log (nav-log). 3) Click delete-entry-* for the entry. 4) In the resulting Sonner toast click 'Undo'. Expected: entry returns to list. Actual: list stays at the lower count. Root cause: In Log.jsx the toast's `action.onClick` calls `undoDelete()` from the current render scope. `undoDelete` is a useCallback in AppContext with dependency [lastDeleted]; at the moment Log.handleDelete fires, `lastDeleted` is still null (the previous value), so the closure captured by Log is the stale function. setLastDeleted(target) inside deleteEntry's setEntries updater triggers a re-render, but the toast was already registered with the stale onClick reference. Mitigation: change Log.jsx to keep a local reference to the deleted entry and call a context method like `restoreEntry(entry)` directly: `restoreEntry: (entry) => setEntries(prev => [entry, ...prev])`. Then toast onClick becomes `() => restoreEntry(entry)`. This removes the dependency on lastDeleted entirely."
+}

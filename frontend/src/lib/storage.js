@@ -1,0 +1,133 @@
+// localStorage helpers for CBE Life Scoreboard
+const ENTRIES_KEY = "cbe.entries.v1";
+const ACTIONS_KEY = "cbe.actions.v1";
+
+export const DEFAULT_ACTIONS = [
+  {
+    id: "act-pt-study",
+    name: "+30 min PT Study",
+    category: "PT Study",
+    minutes: 30,
+    points: 10,
+    type: "positive",
+    icon: "BookOpen",
+  },
+  {
+    id: "act-bw-strength",
+    name: "+30 min BW Strength Systems",
+    category: "BW Strength Systems",
+    minutes: 30,
+    points: 10,
+    type: "positive",
+    icon: "Dumbbell",
+  },
+  {
+    id: "act-content",
+    name: "+30 min Content Creation",
+    category: "Content",
+    minutes: 30,
+    points: 10,
+    type: "positive",
+    icon: "Camera",
+  },
+  {
+    id: "act-reading",
+    name: "+30 min Reading",
+    category: "Reading",
+    minutes: 30,
+    points: 5,
+    type: "positive",
+    icon: "Book",
+  },
+  {
+    id: "act-ai-systems",
+    name: "+30 min AI / Systems Work",
+    category: "AI / Systems",
+    minutes: 30,
+    points: 10,
+    type: "positive",
+    icon: "Cpu",
+  },
+  {
+    id: "act-published",
+    name: "Published Post/Reel",
+    category: "Content",
+    minutes: 0,
+    points: 25,
+    type: "positive",
+    icon: "Rocket",
+  },
+  {
+    id: "act-scrolling",
+    name: "Mindless Scrolling",
+    category: "Distraction",
+    minutes: 0,
+    points: -20,
+    type: "negative",
+    icon: "Smartphone",
+  },
+  {
+    id: "act-gaming",
+    name: "Gaming/YouTube outside plan",
+    category: "Distraction",
+    minutes: 0,
+    points: -30,
+    type: "negative",
+    icon: "Gamepad2",
+  },
+  {
+    id: "act-missed-study",
+    name: "Missed planned study session",
+    category: "Distraction",
+    minutes: 0,
+    points: -20,
+    type: "negative",
+    icon: "XCircle",
+  },
+  {
+    id: "act-late-phone",
+    name: "Late night phone use",
+    category: "Distraction",
+    minutes: 0,
+    points: -15,
+    type: "negative",
+    icon: "MoonOff",
+  },
+];
+
+export function loadEntries() {
+  try {
+    const raw = localStorage.getItem(ENTRIES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveEntries(entries) {
+  localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+}
+
+export function loadActions() {
+  try {
+    const raw = localStorage.getItem(ACTIONS_KEY);
+    if (!raw) {
+      localStorage.setItem(ACTIONS_KEY, JSON.stringify(DEFAULT_ACTIONS));
+      return DEFAULT_ACTIONS;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_ACTIONS;
+  } catch {
+    return DEFAULT_ACTIONS;
+  }
+}
+
+export function saveActions(actions) {
+  localStorage.setItem(ACTIONS_KEY, JSON.stringify(actions));
+}
+
+export function generateId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
