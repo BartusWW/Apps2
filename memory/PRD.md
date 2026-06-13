@@ -54,6 +54,12 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
+## Implemented (2026-02-13 — Drag-and-Drop Category Reorder)
+- Replaced the arrows-only sort with `@dnd-kit/sortable` powered drag-and-drop in `CategoriesEditor`. Each row now has a `GripVertical` handle that activates after 6px pointer movement or a 180ms touch hold (prevents accidental drags when tapping the row body).
+- Sensors: `PointerSensor` (mouse/pen), `TouchSensor` (mobile-first), `KeyboardSensor` for accessibility. Up/Down arrow buttons are kept as an a11y fallback.
+- New context helper `setCategoryOrder(orderedNames)` writes the full ordering atomically; defensively appends any categories missing from the new order.
+- Bundle impact: `@dnd-kit/core` + `sortable` + `utilities` (~25kb gzip total).
+
 ## Implemented (2026-02-13 — Habit Streaks)
 - **Flame badges on Habit cards** for positive habits only (negative streaks intentionally skipped to keep UI minimal).
 - `computeHabitStreaks(habit, entries)` in `lib/habits.js`:
@@ -101,7 +107,6 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 
 ## Backlog
 ### P1
-- Drag-and-drop category reorder (current: up/down arrow buttons)
 - Web Push for reminders (requires backend; deferred)
 - Optional cloud sync (Mongo backend) for multi-device users
 

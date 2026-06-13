@@ -262,6 +262,22 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  // Set the full ordering at once (used by drag-and-drop).
+  const setCategoryOrder = useCallback((orderedNames) => {
+    setSettings((prev) => {
+      const byName = Object.fromEntries((prev.categories || []).map((c) => [c.name, c]));
+      const next = orderedNames
+        .map((name, i) => (byName[name] ? { ...byName[name], sortOrder: i } : null))
+        .filter(Boolean);
+      // Append any categories missing from orderedNames at the end (defensive).
+      const seen = new Set(orderedNames);
+      for (const c of prev.categories || []) {
+        if (!seen.has(c.name)) next.push({ ...c, sortOrder: next.length });
+      }
+      return { ...prev, categories: next };
+    });
+  }, []);
+
   // ----- Log Modal global state -----
   const [logModal, setLogModal] = useState({ open: false, categoryName: null });
   const openLogModal = useCallback((categoryName) => {
@@ -341,6 +357,7 @@ export function AppProvider({ children }) {
       reorderPinned,
       toggleCategoryCollapsed,
       moveCategoryOrder,
+      setCategoryOrder,
       logModal,
       openLogModal,
       closeLogModal,
@@ -355,7 +372,7 @@ export function AppProvider({ children }) {
       undoLastEntry, undoDelete, addAction, updateAction, deleteAction,
       addHabit, updateHabit, deleteHabit,
       addBrainDump, updateBrainDump, deleteBrainDump,
-      togglePinCategory, reorderPinned, toggleCategoryCollapsed, moveCategoryOrder,
+      togglePinCategory, reorderPinned, toggleCategoryCollapsed, moveCategoryOrder, setCategoryOrder,
       logModal, openLogModal, closeLogModal,
       setLayoutVisible, moveLayoutItem,
       reloadFromStorage,

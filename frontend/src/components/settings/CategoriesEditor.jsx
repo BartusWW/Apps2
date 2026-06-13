@@ -9,8 +9,26 @@ import {
   X,
   ArrowUp,
   ArrowDown,
+  GripVertical,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useApp } from "../../context/AppContext";
 import { COLOR_OPTIONS, paletteFor } from "../../lib/categoryColors";
 import IconPicker from "../IconPicker";
@@ -72,9 +90,7 @@ function CategoryForm({ initial, onSave, onCancel, submitLabel, testIdPrefix }) 
       data-testid={`${testIdPrefix}-category-form`}
     >
       <div>
-        <label className="text-[10px] uppercase tracking-widest text-neutral-500">
-          Name
-        </label>
+        <label className="text-[10px] uppercase tracking-widest text-neutral-500">Name</label>
         <input
           type="text"
           value={form.name}
@@ -87,9 +103,7 @@ function CategoryForm({ initial, onSave, onCancel, submitLabel, testIdPrefix }) 
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-[10px] uppercase tracking-widest text-neutral-500">
-            Type
-          </label>
+          <label className="text-[10px] uppercase tracking-widest text-neutral-500">Type</label>
           <select
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value })}
@@ -101,9 +115,7 @@ function CategoryForm({ initial, onSave, onCancel, submitLabel, testIdPrefix }) 
           </select>
         </div>
         <div>
-          <label className="text-[10px] uppercase tracking-widest text-neutral-500">
-            Icon
-          </label>
+          <label className="text-[10px] uppercase tracking-widest text-neutral-500">Icon</label>
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
@@ -121,9 +133,7 @@ function CategoryForm({ initial, onSave, onCancel, submitLabel, testIdPrefix }) 
       </div>
 
       <div>
-        <label className="text-[10px] uppercase tracking-widest text-neutral-500">
-          Color
-        </label>
+        <label className="text-[10px] uppercase tracking-widest text-neutral-500">Color</label>
         <div className="mt-1">
           <ColorSwatchPicker
             value={form.color}
@@ -177,14 +187,122 @@ function CategoryForm({ initial, onSave, onCancel, submitLabel, testIdPrefix }) 
   );
 }
 
+// Single draggable row. Drag is bound to the GripVertical handle so taps on
+// arrows / edit / delete still work normally.
+function SortableCategoryRow({ category, isFirst, isLast, onEdit, onDelete, onMove }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.name });
+  const Icon = Icons[category.icon] || Icons.Zap;
+  const p = paletteFor(
+    category.color || (category.type === "negative" ? "red" : "emerald"),
+  );
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 10 : "auto",
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`bg-neutral-900 border rounded-lg px-2 py-3 flex items-center gap-2 ${
+        isDragging ? "border-emerald-500/50 shadow-lg" : "border-white/10"
+      }`}
+      data-testid={`category-row-${category.name}`}
+    >
+      <button
+        type="button"
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        data-testid={`drag-handle-${category.name}`}
+        aria-label={`Reorder ${category.name}`}
+        className="p-1 -ml-0.5 text-neutral-500 hover:text-neutral-200 hover:bg-white/5 rounded touch-none cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical size={14} />
+      </button>
+
+      <div className="flex flex-col gap-0.5">
+        <button
+          type="button"
+          onClick={() => onMove(category.name, -1)}
+          disabled={isFirst}
+          data-testid={`move-up-${category.name}`}
+          className="p-0.5 rounded text-neutral-500 hover:text-emerald-400 hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent"
+          aria-label="Move up"
+        >
+          <ArrowUp size={11} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onMove(category.name, 1)}
+          disabled={isLast}
+          data-testid={`move-down-${category.name}`}
+          className="p-0.5 rounded text-neutral-500 hover:text-emerald-400 hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent"
+          aria-label="Move down"
+        >
+          <ArrowDown size={11} />
+        </button>
+      </div>
+
+      <span
+        className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${p.softBg} ${p.text}`}
+      >
+        <Icon size={14} strokeWidth={2.5} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-white truncate">{category.name}</p>
+        <p className="text-[10px] uppercase tracking-widest text-neutral-500 truncate">
+          {category.type} · {category.color || "default"}
+          {category.description ? ` · ${category.description}` : ""}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onEdit(category.name)}
+        data-testid={`edit-category-${category.name}`}
+        className="p-2 rounded-md text-neutral-400 hover:text-emerald-400 hover:bg-white/5"
+        aria-label="Edit"
+      >
+        <Pencil size={13} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onDelete(category.name)}
+        data-testid={`delete-category-${category.name}`}
+        className="p-2 rounded-md text-neutral-500 hover:text-red-500 hover:bg-white/5"
+        aria-label="Delete"
+      >
+        <Trash2 size={13} />
+      </button>
+    </li>
+  );
+}
+
 export default function CategoriesEditor() {
-  const { settings, updateSettings, moveCategoryOrder } = useApp();
-  // Render in sort order so the manual sort buttons make sense.
+  const { settings, updateSettings, moveCategoryOrder, setCategoryOrder } = useApp();
   const categories = [...(settings.categories || [])].sort(
     (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
   );
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
+
+  // Sensors: PointerSensor (mouse/pen) + TouchSensor (mobile) + Keyboard a11y.
+  // Activation distance/delay prevents accidental drags when tapping the row.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const updateCategory = (name, patch) => {
     const next = (settings.categories || []).map((c) =>
@@ -216,6 +334,16 @@ export default function CategoriesEditor() {
     });
   };
 
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const names = categories.map((c) => c.name);
+    const oldIdx = names.indexOf(active.id);
+    const newIdx = names.indexOf(over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    setCategoryOrder(arrayMove(names, oldIdx, newIdx));
+  };
+
   return (
     <section data-testid="categories-editor" className="space-y-3">
       <div className="flex items-center justify-between">
@@ -242,96 +370,60 @@ export default function CategoriesEditor() {
         />
       )}
 
-      <ul className="space-y-1.5">
-        {categories.map((c, idx) => {
-          const Icon = Icons[c.icon] || Icons.Zap;
-          const p = paletteFor(c.color || (c.type === "negative" ? "red" : "emerald"));
-          if (editing === c.name) {
-            return (
-              <li key={c.name}>
-                <CategoryForm
-                  initial={c}
-                  submitLabel="Save"
-                  testIdPrefix={`edit-${c.name}`}
-                  onCancel={() => setEditing(null)}
-                  onSave={(patch) => {
-                    updateCategory(c.name, patch);
-                    setEditing(null);
-                    toast("Category updated", {
-                      className: "!bg-neutral-900 !border-white/10 !text-white",
-                    });
-                  }}
+      <p className="text-[10px] uppercase tracking-widest text-neutral-500">
+        Drag the handle or use arrows to reorder.
+      </p>
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={categories.map((c) => c.name)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="space-y-1.5" data-testid="categories-list">
+            {categories.map((c, idx) => {
+              if (editing === c.name) {
+                return (
+                  <li key={c.name}>
+                    <CategoryForm
+                      initial={c}
+                      submitLabel="Save"
+                      testIdPrefix={`edit-${c.name}`}
+                      onCancel={() => setEditing(null)}
+                      onSave={(patch) => {
+                        updateCategory(c.name, patch);
+                        setEditing(null);
+                        toast("Category updated", {
+                          className: "!bg-neutral-900 !border-white/10 !text-white",
+                        });
+                      }}
+                    />
+                  </li>
+                );
+              }
+              return (
+                <SortableCategoryRow
+                  key={c.name}
+                  category={c}
+                  isFirst={idx === 0}
+                  isLast={idx === categories.length - 1}
+                  onEdit={setEditing}
+                  onDelete={deleteCategory}
+                  onMove={moveCategoryOrder}
                 />
-              </li>
-            );
-          }
-          return (
-            <li
-              key={c.name}
-              className="bg-neutral-900 border border-white/10 rounded-lg px-3.5 py-3 flex items-center gap-2.5"
-              data-testid={`category-row-${c.name}`}
-            >
-              <div className="flex flex-col gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => moveCategoryOrder(c.name, -1)}
-                  disabled={idx === 0}
-                  data-testid={`move-up-${c.name}`}
-                  className="p-0.5 rounded text-neutral-500 hover:text-emerald-400 hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent"
-                  aria-label="Move up"
-                >
-                  <ArrowUp size={11} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveCategoryOrder(c.name, 1)}
-                  disabled={idx === categories.length - 1}
-                  data-testid={`move-down-${c.name}`}
-                  className="p-0.5 rounded text-neutral-500 hover:text-emerald-400 hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent"
-                  aria-label="Move down"
-                >
-                  <ArrowDown size={11} />
-                </button>
-              </div>
-              <span
-                className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${p.softBg} ${p.text}`}
-              >
-                <Icon size={14} strokeWidth={2.5} />
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{c.name}</p>
-                <p className="text-[10px] uppercase tracking-widest text-neutral-500 truncate">
-                  {c.type} · {c.color || "default"}
-                  {c.description ? ` · ${c.description}` : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditing(c.name)}
-                data-testid={`edit-category-${c.name}`}
-                className="p-2 rounded-md text-neutral-400 hover:text-emerald-400 hover:bg-white/5"
-                aria-label="Edit"
-              >
-                <Pencil size={13} />
-              </button>
-              <button
-                type="button"
-                onClick={() => deleteCategory(c.name)}
-                data-testid={`delete-category-${c.name}`}
-                className="p-2 rounded-md text-neutral-500 hover:text-red-500 hover:bg-white/5"
-                aria-label="Delete"
-              >
-                <Trash2 size={13} />
-              </button>
-            </li>
-          );
-        })}
-        {categories.length === 0 && !adding && (
-          <p className="text-sm text-neutral-500">
-            No categories. Tap “New” to create one.
-          </p>
-        )}
-      </ul>
+              );
+            })}
+            {categories.length === 0 && !adding && (
+              <p className="text-sm text-neutral-500">
+                No categories. Tap “New” to create one.
+              </p>
+            )}
+          </ul>
+        </SortableContext>
+      </DndContext>
     </section>
   );
 }
