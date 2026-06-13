@@ -236,6 +236,41 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  // ----- Category collapsed state -----
+  const toggleCategoryCollapsed = useCallback((name) => {
+    setSettings((prev) => {
+      const collapsed = prev.collapsedCategories || [];
+      const next = collapsed.includes(name)
+        ? collapsed.filter((n) => n !== name)
+        : [...collapsed, name];
+      return { ...prev, collapsedCategories: next };
+    });
+  }, []);
+
+  // ----- Category sort order -----
+  const moveCategoryOrder = useCallback((name, delta) => {
+    setSettings((prev) => {
+      const cats = [...(prev.categories || [])].sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
+      );
+      const idx = cats.findIndex((c) => c.name === name);
+      const newIdx = idx + delta;
+      if (idx < 0 || newIdx < 0 || newIdx >= cats.length) return prev;
+      [cats[idx], cats[newIdx]] = [cats[newIdx], cats[idx]];
+      const renumbered = cats.map((c, i) => ({ ...c, sortOrder: i }));
+      return { ...prev, categories: renumbered };
+    });
+  }, []);
+
+  // ----- Log Modal global state -----
+  const [logModal, setLogModal] = useState({ open: false, categoryName: null });
+  const openLogModal = useCallback((categoryName) => {
+    setLogModal({ open: true, categoryName });
+  }, []);
+  const closeLogModal = useCallback(() => {
+    setLogModal({ open: false, categoryName: null });
+  }, []);
+
   const reorderPinned = useCallback((fromIndex, toIndex) => {
     setSettings((prev) => {
       const arr = [...(prev.pinnedCategories || [])];
@@ -304,6 +339,11 @@ export function AppProvider({ children }) {
       deleteBrainDump,
       togglePinCategory,
       reorderPinned,
+      toggleCategoryCollapsed,
+      moveCategoryOrder,
+      logModal,
+      openLogModal,
+      closeLogModal,
       setLayoutVisible,
       moveLayoutItem,
       reloadFromStorage,
@@ -315,7 +355,9 @@ export function AppProvider({ children }) {
       undoLastEntry, undoDelete, addAction, updateAction, deleteAction,
       addHabit, updateHabit, deleteHabit,
       addBrainDump, updateBrainDump, deleteBrainDump,
-      togglePinCategory, reorderPinned, setLayoutVisible, moveLayoutItem,
+      togglePinCategory, reorderPinned, toggleCategoryCollapsed, moveCategoryOrder,
+      logModal, openLogModal, closeLogModal,
+      setLayoutVisible, moveLayoutItem,
       reloadFromStorage,
     ],
   );

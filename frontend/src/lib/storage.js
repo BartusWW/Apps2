@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS = {
   habits: [], // populated by migrations
   categories: [], // populated by migrations
   pinnedCategories: [], // category names pinned to top
+  collapsedCategories: [], // category names whose dropdown is collapsed
   homeLayout: [], // [{ id, visible }] in display order
 };
 

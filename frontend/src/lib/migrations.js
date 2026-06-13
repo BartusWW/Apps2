@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "./storage";
 import { DEFAULT_CATEGORY_COLORS } from "./categoryColors";
 
 const SCHEMA_KEY = "cbe.schema.version";
-const TARGET_VERSION = 3;
+const TARGET_VERSION = 4;
 
 // Default categories (v2 — drives Quick Add UX, v3 adds color)
 export const DEFAULT_CATEGORIES = [
@@ -28,8 +28,9 @@ export const DEFAULT_HOME_LAYOUT = [
   { id: "pinned", visible: true },
   { id: "recent", visible: true },
   { id: "habits", visible: true },
-  { id: "build", visible: true },
-  { id: "eliminate", visible: true },
+  { id: "categoryDropdowns", visible: true },
+  { id: "build", visible: false },
+  { id: "eliminate", visible: false },
 ];
 
 // Default habits (v2)
@@ -119,6 +120,53 @@ export function runMigrations() {
     v = 3;
   }
   return { from: current, to: v };
+}
+
+function migrate_2_to_3() {
+  // Adds colors + description to categories, seeds homeLayout, pinnedCategories, brain dump bucket.
+  const settings = readJSON("cbe.settings.v1", null) || { ...DEFAULT_SETTINGS };
+  if (Array.isArray(settings.categories)) {
+    settings.categories = settings.categories.map((c) => ({
+      ...c,
+      color: c.color || DEFAULT_CATEGORY_COLORS[c.name] || (c.type === "negative" ? "red" : "emerald"),
+      description: c.description || "",
+    }));
+  } else {
+    settings.categories = [...DEFAULT_CATEGORIES];
+  }
+  if (!Array.isArray(settings.pinnedCategories)) settings.pinnedCategories = [];
+  if (!Array.isArray(settings.homeLayout) || settings.homeLayout.length === 0) {
+    settings.homeLayout = [...DEFAULT_HOME_LAYOUT];
+  } else {
+    // Ensure all known section ids are present (forward-compatible: new sections get visible:true at the end)
+    const existing = new Set(settings.homeLayout.map((l) => l.id));
+    for (const def of DEFAULT_HOME_LAYOUT) {
+      if (!existing.has(def.id)) settings.homeLayout.push({ ...def });
+    }
+  }
+  writeJSON("cbe.settings.v1", settings);
+
+  if (!localStorage.getItem("cbe.brain-dump.v1")) {
+    writeJSON("cbe.brain-dump.v1", []);
+  }
+
+  setVersion(3);
+}
+
+export { TARGET_VERSION, SCHEMA_KEY };
+.id));
+  for (const def of DEFAULT_HOME_LAYOUT) {
+    if (!existing.has(def.id)) layout.push({ ...def });
+  }
+  settings.homeLayout = layout;
+
+  if (!Array.isArray(settings.collapsedCategories)) {
+    // Default: all categories start collapsed
+    settings.collapsedCategories = (settings.categories || []).map((c) => c.name);
+  }
+
+  writeJSON("cbe.settings.v1", settings);
+  setVersion(4);
 }
 
 function migrate_2_to_3() {
