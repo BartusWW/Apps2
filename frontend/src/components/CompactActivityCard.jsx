@@ -17,14 +17,14 @@ import { paletteFor } from "../lib/categoryColors";
  * with the existing Pinned section.
  */
 export default function CompactActivityCard({ action, showPinToggle = true }) {
-  const { openLogModal, settings, togglePinCategory, logActivity, deleteEntry } = useApp();
+  const { openLogModal, settings, togglePinAction, logActivity, deleteEntry } = useApp();
   if (!action) return null;
   const cat = (settings.categories || []).find((c) => c.name === action.category);
   const Icon = Icons[action.icon || cat?.icon || "Zap"] || Zap;
   const isPositive = (cat?.type || action.type) === "positive";
   const colorId = cat?.color || (isPositive ? "emerald" : "red");
   const p = paletteFor(colorId);
-  const isPinned = (settings.pinnedCategories || []).includes(action.category);
+  const isPinned = (settings.pinnedActionIds || []).includes(action.id);
   const isInstant = !Number(action.minutes) || action.minutes <= 0;
 
   const handleLog = () => {
@@ -60,7 +60,7 @@ export default function CompactActivityCard({ action, showPinToggle = true }) {
         {showPinToggle && (
           <button
             type="button"
-            onClick={() => togglePinCategory(action.category)}
+            onClick={() => togglePinAction(action.id)}
             data-testid={`pin-${action.id}`}
             className={`p-1 rounded-md transition-colors ${
               isPinned ? p.text : "text-neutral-600 hover:text-neutral-300"

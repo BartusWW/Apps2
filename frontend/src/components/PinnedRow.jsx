@@ -4,18 +4,18 @@ import { useApp } from "../context/AppContext";
 import CompactActivityCard from "./CompactActivityCard";
 
 /**
- * Pinned actions appear at the top of Home — they're the actions whose parent
- * category is pinned (settings.pinnedCategories). Rendered as a 2-column
- * compact grid for minimal scrolling.
+ * Pinned actions appear at the top of Home — driven by
+ * settings.pinnedActionIds (action ids). Rendered as a 2-column compact grid
+ * for minimal scrolling. Order follows the pinnedActionIds array.
  */
 export default function PinnedRow() {
   const { settings, actions } = useApp();
-  const pinnedNames = settings.pinnedCategories || [];
+  const pinnedIds = settings.pinnedActionIds || [];
 
   const pinnedActions = useMemo(() => {
-    const pinSet = new Set(pinnedNames);
-    return (actions || []).filter((a) => pinSet.has(a.category));
-  }, [pinnedNames, actions]);
+    const byId = Object.fromEntries((actions || []).map((a) => [a.id, a]));
+    return pinnedIds.map((id) => byId[id]).filter(Boolean);
+  }, [pinnedIds, actions]);
 
   if (pinnedActions.length === 0) return null;
 

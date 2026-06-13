@@ -24,7 +24,7 @@ function daysAgoISO(days) {
 export default function Dashboard() {
   const { settings, entries, actions } = useApp();
   const categories = settings.categories || [];
-  const pinnedSet = new Set(settings.pinnedCategories || []);
+  const pinnedSet = new Set(settings.pinnedActionIds || []);
   const layout = settings.homeLayout || [];
 
   // Names of categories used at least once in the recency window.
@@ -66,21 +66,22 @@ export default function Dashboard() {
   );
 
   // Group actions by type — positive → Build, negative → Eliminate.
-  // Pinned and Others use the parent category (legacy behaviour preserved).
+  // Pinned actions are excluded; Others uses the parent category recency
+  // (legacy behaviour preserved).
   const positiveActions = sortedActions.filter(
     (a) =>
       (catType[a.category] || a.type) === "positive" &&
-      !pinnedSet.has(a.category) &&
+      !pinnedSet.has(a.id) &&
       activeNames.has(a.category),
   );
   const negativeActions = sortedActions.filter(
     (a) =>
       (catType[a.category] || a.type) === "negative" &&
-      !pinnedSet.has(a.category) &&
+      !pinnedSet.has(a.id) &&
       activeNames.has(a.category),
   );
   const othersActions = sortedActions.filter(
-    (a) => !pinnedSet.has(a.category) && !activeNames.has(a.category),
+    (a) => !pinnedSet.has(a.id) && !activeNames.has(a.category),
   );
 
   // Fallback: brand-new users see all non-pinned actions of their type.
@@ -89,7 +90,7 @@ export default function Dashboard() {
       ? sortedActions.filter(
           (a) =>
             (catType[a.category] || a.type) === "positive" &&
-            !pinnedSet.has(a.category),
+            !pinnedSet.has(a.id),
         )
       : positiveActions;
   const negativeCats =
@@ -97,7 +98,7 @@ export default function Dashboard() {
       ? sortedActions.filter(
           (a) =>
             (catType[a.category] || a.type) === "negative" &&
-            !pinnedSet.has(a.category),
+            !pinnedSet.has(a.id),
         )
       : negativeActions;
   const othersCats =

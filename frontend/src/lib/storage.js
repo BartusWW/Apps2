@@ -15,7 +15,8 @@ export const DEFAULT_SETTINGS = {
   allocationTargets: {}, // { "BW Strength Systems": 30, ... } percentages
   habits: [], // populated by migrations
   categories: [], // populated by migrations
-  pinnedCategories: [], // category names pinned to top
+  pinnedCategories: [], // legacy — superseded by pinnedActionIds at v10. Kept for backup compatibility.
+  pinnedActionIds: [], // action ids pinned to top (v10+)
   collapsedCategories: [], // category names whose dropdown is collapsed
   homeLayout: [], // [{ id, visible }] in display order
 };

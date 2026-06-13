@@ -239,7 +239,7 @@ export function AppProvider({ children }) {
     setBrainDumps((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
-  // ----- Pinned categories -----
+  // ----- Pinned categories (legacy — kept so old callers still work) -----
   const togglePinCategory = useCallback((name) => {
     setSettings((prev) => {
       const pinned = prev.pinnedCategories || [];
@@ -247,6 +247,17 @@ export function AppProvider({ children }) {
         ? pinned.filter((n) => n !== name)
         : [...pinned, name];
       return { ...prev, pinnedCategories: next };
+    });
+  }, []);
+
+  // ----- Pinned actions (v10+) -----
+  const togglePinAction = useCallback((id) => {
+    setSettings((prev) => {
+      const pinned = prev.pinnedActionIds || [];
+      const next = pinned.includes(id)
+        ? pinned.filter((x) => x !== id)
+        : [...pinned, id];
+      return { ...prev, pinnedActionIds: next };
     });
   }, []);
 
@@ -421,7 +432,7 @@ export function AppProvider({ children }) {
 
   const reorderPinned = useCallback((fromIndex, toIndex) => {
     setSettings((prev) => {
-      const arr = [...(prev.pinnedCategories || [])];
+      const arr = [...(prev.pinnedActionIds || [])];
       if (
         fromIndex < 0 ||
         fromIndex >= arr.length ||
@@ -430,7 +441,7 @@ export function AppProvider({ children }) {
       ) return prev;
       const [moved] = arr.splice(fromIndex, 1);
       arr.splice(toIndex, 0, moved);
-      return { ...prev, pinnedCategories: arr };
+      return { ...prev, pinnedActionIds: arr };
     });
   }, []);
 
@@ -495,6 +506,7 @@ export function AppProvider({ children }) {
       togglePinGoal,
       updateGoalProgress,
       togglePinCategory,
+      togglePinAction,
       reorderPinned,
       toggleCategoryCollapsed,
       moveCategoryOrder,
@@ -514,7 +526,7 @@ export function AppProvider({ children }) {
       addHabit, updateHabit, deleteHabit,
       addBrainDump, updateBrainDump, deleteBrainDump,
       addGoal, updateGoal, completeGoal, archiveGoal, restoreGoal, deleteGoal, togglePinGoal, updateGoalProgress,
-      togglePinCategory, reorderPinned, toggleCategoryCollapsed, moveCategoryOrder, setCategoryOrder,
+      togglePinCategory, togglePinAction, reorderPinned, toggleCategoryCollapsed, moveCategoryOrder, setCategoryOrder,
       logModal, openLogModal, closeLogModal,
       setLayoutVisible, moveLayoutItem,
       reloadFromStorage,

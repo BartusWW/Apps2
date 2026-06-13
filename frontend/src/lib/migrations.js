@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "./storage";
 import { DEFAULT_CATEGORY_COLORS } from "./categoryColors";
 
 const SCHEMA_KEY = "cbe.schema.version";
-const TARGET_VERSION = 9;
+const TARGET_VERSION = 10;
 
 // Default categories (v2 — drives Quick Add UX, v3 adds color)
 export const DEFAULT_CATEGORIES = [
@@ -379,6 +379,40 @@ function migrate_8_to_9() {
   setVersion(9);
 }
 
+// v9 → v10: pinning becomes action-level. Convert legacy pinnedCategories
+// (array of category name strings) → pinnedActionIds (array of action ids)
+// by best-effort: for each pinned category name, pin every current action
+// whose `category` matches. Legacy pinnedCategories is left in place for
+// import/export compatibility but is no longer read by the UI.
+function migrate_9_to_10() {
+  const sRaw = localStorage.getItem("cbe.settings.v1");
+  if (!sRaw) {
+    setVersion(10);
+    return;
+  }
+  try {
+    const settings = JSON.parse(sRaw);
+    if (Array.isArray(settings.pinnedActionIds)) {
+      setVersion(10);
+      return;
+    }
+    const aRaw = localStorage.getItem("cbe.actions.v1");
+    const actions = aRaw ? JSON.parse(aRaw) : [];
+    const oldPins = Array.isArray(settings.pinnedCategories)
+      ? settings.pinnedCategories
+      : [];
+    const pinSet = new Set(oldPins);
+    const pinnedActionIds = (Array.isArray(actions) ? actions : [])
+      .filter((a) => pinSet.has(a.category))
+      .map((a) => a.id);
+    settings.pinnedActionIds = pinnedActionIds;
+    localStorage.setItem("cbe.settings.v1", JSON.stringify(settings));
+  } catch {
+    /* ignore */
+  }
+  setVersion(10);
+}
+
 export function runMigrations() {
   const current = getVersion();
   if (current >= TARGET_VERSION) return { from: current, to: current };
@@ -414,6 +448,10 @@ export function runMigrations() {
   if (v < 9) {
     migrate_8_to_9();
     v = 9;
+  }
+  if (v < 10) {
+    migrate_9_to_10();
+    v = 10;
   }
   return { from: current, to: v };
 }
