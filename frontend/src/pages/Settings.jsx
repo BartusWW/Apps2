@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import { Plus, Trash2, Pencil, Check, X, Target, Bell, BellOff, PieChart as PieChartIcon, Download } from "lucide-react";
 import { onInstallAvailability, promptInstall } from "../lib/pwa";
+import HabitsEditor from "../components/settings/HabitsEditor";
+import DataManagement from "../components/settings/DataManagement";
 
 const DEFAULT_CATEGORIES = [
   "PT Study",
@@ -407,6 +409,12 @@ export default function Settings() {
           onChange={(next) => updateSettings({ allocationTargets: next })}
         />
       </section>
+
+      {/* Habits */}
+      <HabitsEditor />
+
+      {/* Data Management */}
+      <DataManagement />
     </div>
   );
 }

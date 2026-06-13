@@ -4,6 +4,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@/index.css";
 import App from "@/App";
 import { registerServiceWorker } from "@/lib/pwa";
+import { runMigrations } from "@/lib/migrations";
+
+// Run schema migrations BEFORE rendering so AppContext loads up-to-date data.
+runMigrations();
 
 const queryClient = new QueryClient({
   defaultOptions: {

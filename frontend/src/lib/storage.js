@@ -3,13 +3,16 @@ const ENTRIES_KEY = "cbe.entries.v1";
 const ACTIONS_KEY = "cbe.actions.v1";
 const SETTINGS_KEY = "cbe.settings.v1";
 const NOTES_KEY = "cbe.notes.v1";
+const DAILY_PLANS_KEY = "cbe.daily-plans.v1";
 
 export const DEFAULT_SETTINGS = {
   weeklyGoalMinutes: 20 * 60, // 20 hours
   reminderEnabled: false,
   reminderTime: "20:00", // 8pm
   lastReminderDate: null, // YYYY-MM-DD
-  allocationTargets: {}, // { "BW Strength Systems": 30, "PT Study": 25, ... } percentages
+  allocationTargets: {}, // { "BW Strength Systems": 30, ... } percentages
+  habits: [], // populated by migrations
+  categories: [], // populated by migrations
 };
 
 export const DEFAULT_ACTIONS = [
@@ -169,6 +172,73 @@ export function loadNotes() {
 
 export function saveNotes(notes) {
   localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+}
+
+export function loadDailyPlans() {
+  try {
+    const raw = localStorage.getItem(DAILY_PLANS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveDailyPlans(plans) {
+  localStorage.setItem(DAILY_PLANS_KEY, JSON.stringify(plans));
+}
+
+// ---------- Backup / Restore / Reset ----------
+const BACKUP_KEYS = [
+  ENTRIES_KEY,
+  ACTIONS_KEY,
+  SETTINGS_KEY,
+  NOTES_KEY,
+  DAILY_PLANS_KEY,
+  "cbe.schema.version",
+];
+
+export function exportAllData() {
+  const data = {};
+  for (const key of BACKUP_KEYS) {
+    const raw = localStorage.getItem(key);
+    if (raw !== null) {
+      try {
+        data[key] = JSON.parse(raw);
+      } catch {
+        data[key] = raw;
+      }
+    }
+  }
+  return {
+    app: "cbe-life-scoreboard",
+    exportedAt: new Date().toISOString(),
+    schemaVersion: Number(localStorage.getItem("cbe.schema.version") || 1),
+    data,
+  };
+}
+
+export function validateBackup(payload) {
+  if (!payload || typeof payload !== "object") return { ok: false, reason: "Not a JSON object" };
+  if (payload.app !== "cbe-life-scoreboard") return { ok: false, reason: "Not a CBE backup file" };
+  if (!payload.data || typeof payload.data !== "object") return { ok: false, reason: "Missing data" };
+  return { ok: true };
+}
+
+export function importAllData(payload) {
+  const v = validateBackup(payload);
+  if (!v.ok) throw new Error(v.reason);
+  // Wipe existing app keys, then write new ones
+  for (const key of BACKUP_KEYS) localStorage.removeItem(key);
+  for (const [key, value] of Object.entries(payload.data)) {
+    if (!BACKUP_KEYS.includes(key)) continue; // safety: ignore foreign keys
+    localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+  }
+}
+
+export function resetAllData() {
+  for (const key of BACKUP_KEYS) localStorage.removeItem(key);
 }
 
 export function generateId() {
