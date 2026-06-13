@@ -54,6 +54,16 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
+## Implemented (2026-02-13 — Goal Progress Types V1)
+- **Five completion-tracking models** added per goal: `manual` (0-100%), `value` (current/target with unit), `checklist` (drag-edit items, auto-pct from done/total), `hours` (target hours; fills from goal-linked logs), `ongoing` (lifetime/month/week + optional milestones).
+- `lib/goalProgress.js` computes a unified `progress` snapshot: `{ type, pct, primary, secondary, isCompletable, ongoing }`.
+- **GoalCard** renders a typed progress bar with chip (e.g. "33 / 320 pages · 10%"); Ongoing goals get a 3-tile lifetime/month/week panel + next-milestone preview.
+- **Target Reached banner** with one-tap **Complete** appears as soon as a typed goal hits 100% (suppressed for Ongoing).
+- **Deadline health** now uses the typed `progress.pct` instead of allocation-based progress — exactly per spec ("Time Consumed % vs Goal Progress %"). Ongoing + deadline-less goals return null health.
+- **Migration v6→v7** (non-destructive, idempotent): defaults existing goals to `progressType="hours"` when they have linked activities, else `"manual"`. Seeds all sub-fields with safe defaults. Existing data preserved.
+- **GoalForm** now has a Progress Tracking section with type-aware fields: % input, value/target/unit, inline checklist editor with toggles, hours-target input, ongoing weekly/monthly targets + inline milestone editor.
+- **Verified live**: schema=7, all 5 progress types created and rendered correctly, allocation/breakdown still works, ongoing goal correctly excluded from completion-prompt flow.
+
 ## Implemented (2026-02-13 — Goal Deadlines & Urgency V1)
 - **Optional deadline + type** (None / Soft / Hard) on every goal. Form picks a date and type; persisted to `cbe.goals.v1`.
 - **Time remaining stats** computed in `lib/goals.js → computeDeadlineStats`: `totalDays`, `daysRemaining`, `timeRemainingPct`, `timeConsumedPct`, `colorBand`. Color bands track % remaining (green 66-100, yellow 33-66, orange 15-33, red 0-15), not absolute days, per spec.

@@ -76,6 +76,7 @@ export default function GoalCard({
     status,
     deadlineStats,
     health,
+    progress,
   } = snapshot;
   const [open, setOpen] = useState(defaultExpanded);
   const Icon = Icons[goal.icon] || Icons.Target;
@@ -85,6 +86,7 @@ export default function GoalCard({
   const isCompact = goal.viewMode === "compact";
   const diffLabel = diff > 0 ? `+${diff}%` : `${diff}%`;
   const dStats = deadlineStats; // may be null
+  const prog = progress; // may be null on legacy snapshots
 
   // Status badge: prefer deadline health (when there's a deadline), else alignment.
   const useHealth = !!dStats && !!health;
@@ -107,13 +109,15 @@ export default function GoalCard({
 
   // Compact rendering — name + 1 primary metric chip + badge.
   if (isCompact && !open) {
-    const compactValue = metrics.goalHours
-      ? formatHours(stats.minutes)
-      : metrics.priorityWeight
-        ? `P${goal.priorityWeight}/10`
-        : metrics.actualAllocation
-          ? `${actualPct}%`
-          : "—";
+    const compactValue = prog
+      ? prog.primary
+      : metrics.goalHours
+        ? formatHours(stats.minutes)
+        : metrics.priorityWeight
+          ? `P${goal.priorityWeight}/10`
+          : metrics.actualAllocation
+            ? `${actualPct}%`
+            : "—";
     return (
       <article
         className="bg-neutral-900 border border-white/10 rounded-xl p-3 flex items-center gap-3"
@@ -204,6 +208,87 @@ export default function GoalCard({
               aria-label="Actual allocation"
             />
           </div>
+        </div>
+      )}
+
+      {/* Goal Progress bar — Manual / Value / Checklist / Hours */}
+      {prog && prog.type !== "ongoing" && (
+        <div
+          className="px-4 pb-3 space-y-1"
+          data-testid={`goal-progress-${goal.id}`}
+        >
+          <div className="flex items-center justify-between text-[10px] uppercase tracking-widest">
+            <span className="text-neutral-500">
+              {prog.type === "manual" && "Progress"}
+              {prog.type === "value" && "Progress"}
+              {prog.type === "checklist" && "Checklist"}
+              {prog.type === "hours" && "Hours"}
+            </span>
+            <span className={`font-semibold ${p.text}`}>
+              {prog.primary} · {prog.pct}%
+            </span>
+          </div>
+          <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+            <div
+              className={`h-full ${p.dot} rounded-full transition-all duration-500`}
+              style={{ width: `${Math.min(100, prog.pct)}%` }}
+            />
+          </div>
+          {prog.isCompletable && goal.status === "active" && (
+            <div
+              className="mt-2 flex items-center justify-between gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2"
+              data-testid={`goal-target-reached-${goal.id}`}
+            >
+              <span className="text-[11px] uppercase tracking-widest text-emerald-400 font-semibold">
+                Target reached — extend or complete?
+              </span>
+              <button
+                type="button"
+                onClick={() => onComplete?.(goal)}
+                data-testid={`goal-complete-quick-${goal.id}`}
+                className="text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1 rounded-md bg-emerald-500 text-black hover:bg-emerald-400"
+              >
+                Complete
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Ongoing progress card (lifetime / month / week) */}
+      {prog && prog.type === "ongoing" && (
+        <div className="px-4 pb-3" data-testid={`goal-ongoing-${goal.id}`}>
+          <div className="grid grid-cols-3 gap-2 bg-neutral-950 border border-white/5 rounded-lg p-2.5">
+            <Metric
+              label="Lifetime"
+              value={formatHours(prog.ongoing.lifetimeMinutes)}
+              accent={p.text}
+              testId={`ongoing-lifetime-${goal.id}`}
+            />
+            <Metric
+              label="Month"
+              value={formatHours(prog.ongoing.monthlyMinutes)}
+              testId={`ongoing-month-${goal.id}`}
+            />
+            <Metric
+              label="Week"
+              value={formatHours(prog.ongoing.weeklyMinutes)}
+              testId={`ongoing-week-${goal.id}`}
+            />
+          </div>
+          {prog.ongoing.nextMilestone && (
+            <div
+              className="mt-2 flex items-center justify-between gap-2"
+              data-testid={`goal-next-milestone-${goal.id}`}
+            >
+              <span className="text-[10px] uppercase tracking-widest text-neutral-500">
+                Next: {prog.ongoing.nextMilestone.label || `${prog.ongoing.nextMilestone.hoursTarget}h`}
+              </span>
+              <span className={`text-[10px] uppercase tracking-widest font-semibold ${p.text}`}>
+                {prog.ongoing.nextMilestone.progressPct}%
+              </span>
+            </div>
+          )}
         </div>
       )}
 

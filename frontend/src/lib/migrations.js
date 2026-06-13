@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "./storage";
 import { DEFAULT_CATEGORY_COLORS } from "./categoryColors";
 
 const SCHEMA_KEY = "cbe.schema.version";
-const TARGET_VERSION = 6;
+const TARGET_VERSION = 7;
 
 // Default categories (v2 — drives Quick Add UX, v3 adds color)
 export const DEFAULT_CATEGORIES = [
@@ -247,6 +247,46 @@ function migrate_5_to_6() {
 
 export { DEFAULT_DISPLAY_METRICS };
 
+// v6 → v7: per-goal Progress Type. Default each existing goal to:
+//   - "hours" when the goal already links activities (so logged hours flow in)
+//   - "manual" otherwise
+// Strictly additive — preserves every existing goal field.
+function migrate_6_to_7() {
+  const raw = localStorage.getItem("cbe.goals.v1");
+  let goals = [];
+  if (raw) {
+    try {
+      goals = JSON.parse(raw);
+      if (!Array.isArray(goals)) goals = [];
+    } catch {
+      goals = [];
+    }
+  }
+  goals = goals.map((g) => {
+    if (g.progressType) return g; // already migrated
+    const linked = Array.isArray(g.linkedActivities) ? g.linkedActivities.length : 0;
+    return {
+      ...g,
+      progressType: linked > 0 ? "hours" : "manual",
+      progress: {
+        manualPct: 0,
+        valueCurrent: 0,
+        valueTarget: 0,
+        valueUnit: "items",
+        checklist: [],
+        hoursTarget: 0,
+        ongoing: {
+          weeklyTargetMinutes: 0,
+          monthlyTargetMinutes: 0,
+          milestones: [],
+        },
+      },
+    };
+  });
+  localStorage.setItem("cbe.goals.v1", JSON.stringify(goals));
+  setVersion(7);
+}
+
 export function runMigrations() {
   const current = getVersion();
   if (current >= TARGET_VERSION) return { from: current, to: current };
@@ -270,6 +310,10 @@ export function runMigrations() {
   if (v < 6) {
     migrate_5_to_6();
     v = 6;
+  }
+  if (v < 7) {
+    migrate_6_to_7();
+    v = 7;
   }
   return { from: current, to: v };
 }

@@ -3,6 +3,7 @@
 // compare TARGET allocation vs ACTUAL allocation of dev time.
 
 import { DEFAULT_DISPLAY_METRICS } from "./migrations";
+import { computeGoalProgress } from "./goalProgress";
 
 // ---------- Display presets ----------
 // Each preset is a set of metric keys to enable; everything else is hidden.
@@ -202,6 +203,7 @@ export function computeGoalsSnapshot(goals, entries) {
       diff,
       status: alignmentStatus(targetPct, actualPct),
     };
+    snap.progress = computeGoalProgress(g, stats, entries);
     snap.deadlineStats = computeDeadlineStats(g);
     snap.health = computeHealthStatus(g, snap, snap.deadlineStats);
     return snap;
@@ -303,21 +305,30 @@ export function computeDeadlineStats(goal, today = new Date()) {
   };
 }
 
-// Health blends progress vs time. Uses actualPct/targetPct already in snapshot.
-//   goalProgressPct = (actualPct / targetPct) * 100, capped at 100 when no target.
+// Health blends progress vs time. Prefers the goal's typed progress %
+// (Manual / Value / Checklist / Hours). For Ongoing or untyped goals, falls
+// back to allocation-based progress (actualPct / targetPct * 100).
 //   diff = goalProgressPct - timeConsumedPct
-//     diff >= 0  → on-track   (Ahead handled separately via alignment)
-//     -25 < diff < -10 → at-risk
-//     diff <= -25 → critical
-// When the goal has no deadline, returns null (caller falls back to alignment).
+//     diff >= 0           → on-track
+//     -25 < diff <= -10   → at-risk
+//     diff <= -25         → critical
+// Ongoing goals with no deadline return null (no time pressure).
 export function computeHealthStatus(goal, snapshot, deadlineStats) {
   if (goal.status === "completed") return "completed";
   if (!deadlineStats) return null;
-  const target = Math.max(1, snapshot.targetPct || 0);
-  const goalProgress = Math.min(
-    100,
-    Math.round(((snapshot.actualPct || 0) / target) * 100),
-  );
+  if (goal.progressType === "ongoing") return null;
+
+  let goalProgress;
+  if (snapshot.progress && typeof snapshot.progress.pct === "number") {
+    goalProgress = snapshot.progress.pct;
+  } else {
+    const target = Math.max(1, snapshot.targetPct || 0);
+    goalProgress = Math.min(
+      100,
+      Math.round(((snapshot.actualPct || 0) / target) * 100),
+    );
+  }
+
   const diff = goalProgress - deadlineStats.timeConsumedPct;
   if (diff <= -25) return "critical";
   if (diff <= -10) return "at-risk";

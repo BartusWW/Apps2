@@ -1,11 +1,12 @@
 import { useState } from "react";
 import * as Icons from "lucide-react";
-import { X, Check, Calendar } from "lucide-react";
+import { X, Check, Calendar, ListChecks, Trash2, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { COLOR_OPTIONS, paletteFor } from "../lib/categoryColors";
 import IconPicker from "./IconPicker";
 import { useApp } from "../context/AppContext";
 import { DISPLAY_PRESETS, metricsForPreset, DEFAULT_DISPLAY_METRICS } from "../lib/goals";
+import { PROGRESS_TYPES } from "../lib/goalProgress";
 
 const blank = {
   name: "",
@@ -22,7 +23,21 @@ const blank = {
   displayPreset: "balanced",
   displayMetrics: null,
   viewMode: "detailed",
+  progressType: "hours",
+  progress: {
+    manualPct: 0,
+    valueCurrent: 0,
+    valueTarget: 0,
+    valueUnit: "items",
+    checklist: [],
+    hoursTarget: 0,
+    ongoing: { weeklyTargetMinutes: 0, monthlyTargetMinutes: 0, milestones: [] },
+  },
 };
+
+function genId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
 
 function MultiToggleList({ items, value, onToggle, testIdPrefix }) {
   if (items.length === 0) {
@@ -63,6 +78,15 @@ export default function GoalForm({ open, initial, onSave, onClose }) {
   if (!seeded.displayMetrics) {
     seeded.displayMetrics = metricsForPreset(seeded.displayPreset);
   }
+  // Deep-merge progress so legacy goals still get all the nested defaults.
+  seeded.progress = {
+    ...blank.progress,
+    ...(seeded.progress || {}),
+    ongoing: {
+      ...blank.progress.ongoing,
+      ...((seeded.progress && seeded.progress.ongoing) || {}),
+    },
+  };
   const [form, setForm] = useState(seeded);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [showCustomMetrics, setShowCustomMetrics] = useState(
@@ -72,6 +96,55 @@ export default function GoalForm({ open, initial, onSave, onClose }) {
   if (!open) return null;
   const Icon = Icons[form.icon] || Icons.Target;
   const p = paletteFor(form.color);
+
+  const setProgress = (patch) => {
+    setForm((f) => ({ ...f, progress: { ...f.progress, ...patch } }));
+  };
+
+  const addChecklistItem = () => {
+    setProgress({
+      checklist: [...(form.progress.checklist || []), { id: genId(), label: "", done: false }],
+    });
+  };
+  const updateChecklistItem = (id, patch) => {
+    setProgress({
+      checklist: (form.progress.checklist || []).map((c) =>
+        c.id === id ? { ...c, ...patch } : c,
+      ),
+    });
+  };
+  const deleteChecklistItem = (id) => {
+    setProgress({
+      checklist: (form.progress.checklist || []).filter((c) => c.id !== id),
+    });
+  };
+
+  const addMilestone = () => {
+    const next = [
+      ...(form.progress.ongoing.milestones || []),
+      { id: genId(), label: "", hoursTarget: 0 },
+    ];
+    setForm((f) => ({
+      ...f,
+      progress: { ...f.progress, ongoing: { ...f.progress.ongoing, milestones: next } },
+    }));
+  };
+  const updateMilestone = (id, patch) => {
+    const next = (form.progress.ongoing.milestones || []).map((m) =>
+      m.id === id ? { ...m, ...patch } : m,
+    );
+    setForm((f) => ({
+      ...f,
+      progress: { ...f.progress, ongoing: { ...f.progress.ongoing, milestones: next } },
+    }));
+  };
+  const deleteMilestone = (id) => {
+    const next = (form.progress.ongoing.milestones || []).filter((m) => m.id !== id);
+    setForm((f) => ({
+      ...f,
+      progress: { ...f.progress, ongoing: { ...f.progress.ongoing, milestones: next } },
+    }));
+  };
 
   const setPreset = (presetId) => {
     if (presetId === "custom") {
@@ -141,6 +214,8 @@ export default function GoalForm({ open, initial, onSave, onClose }) {
       displayPreset: form.displayPreset || "balanced",
       displayMetrics: form.displayMetrics || metricsForPreset(form.displayPreset || "balanced"),
       viewMode: form.viewMode || "detailed",
+      progressType: form.progressType || "manual",
+      progress: form.progress,
     });
   };
 
@@ -300,6 +375,257 @@ export default function GoalForm({ open, initial, onSave, onClose }) {
             />
           </div>
         )}
+
+        {/* ----- Progress Tracking ----- */}
+        <div className="border-t border-white/5 pt-3 space-y-3">
+          <div className="flex items-center gap-2">
+            <ListChecks size={12} className="text-sky-400" />
+            <p className="text-[10px] uppercase tracking-[0.18em] text-sky-400 font-semibold">
+              Progress Tracking
+            </p>
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase tracking-widest text-neutral-500">Type</label>
+            <select
+              value={form.progressType}
+              onChange={(e) => setForm({ ...form, progressType: e.target.value })}
+              data-testid="goal-progress-type"
+              className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500/50"
+            >
+              {PROGRESS_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {form.progressType === "manual" && (
+            <div data-testid="progress-fields-manual">
+              <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                Current Progress %
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={form.progress.manualPct}
+                onChange={(e) => setProgress({ manualPct: e.target.value })}
+                data-testid="progress-manual-pct"
+                className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500/50"
+              />
+            </div>
+          )}
+
+          {form.progressType === "value" && (
+            <div className="grid grid-cols-3 gap-2" data-testid="progress-fields-value">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-neutral-500">Current</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.progress.valueCurrent}
+                  onChange={(e) => setProgress({ valueCurrent: e.target.value })}
+                  data-testid="progress-value-current"
+                  className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:border-sky-500/50"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-neutral-500">Target</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.progress.valueTarget}
+                  onChange={(e) => setProgress({ valueTarget: e.target.value })}
+                  data-testid="progress-value-target"
+                  className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:border-sky-500/50"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-neutral-500">Unit</label>
+                <input
+                  type="text"
+                  value={form.progress.valueUnit}
+                  onChange={(e) => setProgress({ valueUnit: e.target.value })}
+                  placeholder="pages"
+                  data-testid="progress-value-unit"
+                  className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:border-sky-500/50"
+                />
+              </div>
+            </div>
+          )}
+
+          {form.progressType === "checklist" && (
+            <div data-testid="progress-fields-checklist" className="space-y-1.5">
+              <ul className="space-y-1.5">
+                {(form.progress.checklist || []).map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-center gap-2 bg-neutral-950 border border-white/10 rounded-lg px-2 py-1.5"
+                    data-testid={`checklist-row-${item.id}`}
+                  >
+                    <GripVertical size={11} className="text-neutral-600 shrink-0" />
+                    <button
+                      type="button"
+                      onClick={() => updateChecklistItem(item.id, { done: !item.done })}
+                      data-testid={`checklist-toggle-${item.id}`}
+                      className={`h-4 w-4 rounded border flex items-center justify-center ${
+                        item.done ? "bg-emerald-500 border-emerald-500" : "border-white/20"
+                      }`}
+                      aria-label="Toggle"
+                    >
+                      {item.done && <Check size={10} strokeWidth={3} className="text-black" />}
+                    </button>
+                    <input
+                      type="text"
+                      value={item.label}
+                      onChange={(e) => updateChecklistItem(item.id, { label: e.target.value })}
+                      placeholder="Item label"
+                      data-testid={`checklist-label-${item.id}`}
+                      className={`flex-1 bg-transparent text-sm text-white focus:outline-none ${
+                        item.done ? "line-through text-neutral-500" : ""
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => deleteChecklistItem(item.id)}
+                      data-testid={`checklist-delete-${item.id}`}
+                      className="p-1 text-neutral-500 hover:text-red-400"
+                      aria-label="Delete"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={addChecklistItem}
+                data-testid="checklist-add"
+                className="text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-lg border border-sky-500/40 text-sky-400 hover:bg-sky-500/10"
+              >
+                + Add Item
+              </button>
+            </div>
+          )}
+
+          {form.progressType === "hours" && (
+            <div data-testid="progress-fields-hours">
+              <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                Target Hours
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.progress.hoursTarget}
+                onChange={(e) => setProgress({ hoursTarget: e.target.value })}
+                placeholder="e.g. 500"
+                data-testid="progress-hours-target"
+                className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500/50"
+              />
+              <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-1">
+                Progress fills from goal-linked logged hours.
+              </p>
+            </div>
+          )}
+
+          {form.progressType === "ongoing" && (
+            <div data-testid="progress-fields-ongoing" className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                    Weekly Target (min)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.progress.ongoing.weeklyTargetMinutes}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        progress: {
+                          ...f.progress,
+                          ongoing: { ...f.progress.ongoing, weeklyTargetMinutes: e.target.value },
+                        },
+                      }))
+                    }
+                    data-testid="progress-ongoing-weekly"
+                    className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                    Monthly Target (min)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.progress.ongoing.monthlyTargetMinutes}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        progress: {
+                          ...f.progress,
+                          ongoing: { ...f.progress.ongoing, monthlyTargetMinutes: e.target.value },
+                        },
+                      }))
+                    }
+                    data-testid="progress-ongoing-monthly"
+                    className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500/50"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] uppercase tracking-widest text-neutral-500">
+                Milestones (optional)
+              </p>
+              <ul className="space-y-1.5" data-testid="ongoing-milestones">
+                {(form.progress.ongoing.milestones || []).map((m) => (
+                  <li
+                    key={m.id}
+                    className="flex items-center gap-2 bg-neutral-950 border border-white/10 rounded-lg px-2 py-1.5"
+                    data-testid={`milestone-row-${m.id}`}
+                  >
+                    <input
+                      type="text"
+                      value={m.label}
+                      onChange={(e) => updateMilestone(m.id, { label: e.target.value })}
+                      placeholder="e.g. 100h reading"
+                      data-testid={`milestone-label-${m.id}`}
+                      className="flex-1 bg-transparent text-sm text-white focus:outline-none"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={m.hoursTarget}
+                      onChange={(e) => updateMilestone(m.id, { hoursTarget: e.target.value })}
+                      placeholder="Hours"
+                      data-testid={`milestone-hours-${m.id}`}
+                      className="w-16 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-xs text-white text-right focus:outline-none focus:border-sky-500/50"
+                    />
+                    <span className="text-[10px] text-neutral-500">h</span>
+                    <button
+                      type="button"
+                      onClick={() => deleteMilestone(m.id)}
+                      data-testid={`milestone-delete-${m.id}`}
+                      className="p-1 text-neutral-500 hover:text-red-400"
+                      aria-label="Delete"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={addMilestone}
+                data-testid="milestone-add"
+                className="text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-lg border border-sky-500/40 text-sky-400 hover:bg-sky-500/10"
+              >
+                + Add Milestone
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* ----- Deadline ----- */}
         <div className="border-t border-white/5 pt-3 space-y-2">

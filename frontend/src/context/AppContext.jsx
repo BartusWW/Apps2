@@ -308,6 +308,22 @@ export function AppProvider({ children }) {
       displayPreset: goal.displayPreset || "balanced",
       displayMetrics: goal.displayMetrics || null, // null = derived from preset
       viewMode: goal.viewMode || "detailed",
+      // Progress tracking
+      progressType: goal.progressType || (Array.isArray(goal.linkedActivities) && goal.linkedActivities.length > 0 ? "hours" : "manual"),
+      progress: {
+        manualPct: 0,
+        valueCurrent: 0,
+        valueTarget: 0,
+        valueUnit: "items",
+        checklist: [],
+        hoursTarget: 0,
+        ongoing: {
+          weeklyTargetMinutes: 0,
+          monthlyTargetMinutes: 0,
+          milestones: [],
+        },
+        ...(goal.progress || {}),
+      },
     };
     setGoals((prev) => [next, ...prev]);
     return next;
