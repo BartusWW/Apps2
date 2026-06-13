@@ -80,15 +80,15 @@ export default function CategorySection({
         <div className="px-4 pb-4 pt-1">
           {items.length === 0 ? (
             <p className="text-xs text-neutral-500 py-2 text-center">
-              No activities in this category.
+              No actions in this category.
             </p>
           ) : (
             <div
               className="grid grid-cols-2 gap-2.5"
               data-testid={`category-grid-${categoryName}`}
             >
-              {items.map((c) => (
-                <CompactActivityCard key={c.name} category={c} />
+              {items.map((a) => (
+                <CompactActivityCard key={a.id} action={a} />
               ))}
             </div>
           )}

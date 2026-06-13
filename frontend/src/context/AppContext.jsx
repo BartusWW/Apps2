@@ -83,16 +83,24 @@ export function AppProvider({ children }) {
     return entry;
   }, []);
 
-  // v2: log purely by category + minutes; points computed from time
-  const logActivity = useCallback(({ category, type, minutes, icon, date, time }) => {
+  // v2: log an entry — accepts an actionId to anchor to a loggable action.
+  // For instant actions, `minutes` defaults to 0 and `points` uses the action's
+  // fixed score. For timed actions, `points` is computed from duration × rate.
+  const logActivity = useCallback(({ actionId, category, type, minutes, icon, date, time, points, actionName }) => {
     const safeMin = Math.max(0, Number(minutes) || 0);
-    const pts = computePoints(safeMin, type);
+    const pts =
+      typeof points === "number"
+        ? points
+        : safeMin > 0
+          ? computePoints(safeMin, type)
+          : 0;
     const entry = {
       id: generateId(),
       date: date || todayISO(),
       time: time || nowTimeHHMM(),
       category,
-      actionName: `${safeMin}m ${category}`,
+      actionId: actionId || null,
+      actionName: actionName || `${safeMin}m ${category}`,
       minutes: safeMin,
       points: pts,
       type,
@@ -393,12 +401,22 @@ export function AppProvider({ children }) {
   }, []);
 
   // ----- Log Modal global state -----
-  const [logModal, setLogModal] = useState({ open: false, categoryName: null });
-  const openLogModal = useCallback((categoryName) => {
-    setLogModal({ open: true, categoryName });
+  // Accepts either { actionId } (preferred) or { categoryName } (legacy).
+  const [logModal, setLogModal] = useState({ open: false, actionId: null, categoryName: null });
+  const openLogModal = useCallback((payload) => {
+    if (typeof payload === "string") {
+      // legacy callers passed a category name directly
+      setLogModal({ open: true, actionId: null, categoryName: payload });
+    } else {
+      setLogModal({
+        open: true,
+        actionId: payload?.actionId || null,
+        categoryName: payload?.categoryName || null,
+      });
+    }
   }, []);
   const closeLogModal = useCallback(() => {
-    setLogModal({ open: false, categoryName: null });
+    setLogModal({ open: false, actionId: null, categoryName: null });
   }, []);
 
   const reorderPinned = useCallback((fromIndex, toIndex) => {

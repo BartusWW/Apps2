@@ -9,7 +9,7 @@ import { paletteFor } from "../lib/categoryColors";
 const PRESETS = [10, 20, 30, 60];
 
 export default function LogModal() {
-  const { logModal, closeLogModal, settings, logActivity, deleteEntry } = useApp();
+  const { logModal, closeLogModal, settings, actions, logActivity, deleteEntry } = useApp();
   const [custom, setCustom] = useState("");
 
   useEffect(() => {
@@ -17,14 +17,29 @@ export default function LogModal() {
   }, [logModal.open]);
 
   if (!logModal.open) return null;
-  const cat = (settings.categories || []).find((c) => c.name === logModal.categoryName);
+
+  // Resolve target action — prefer explicit actionId, fall back to the legacy
+  // category-name path (used by existing UI) by picking the first action of
+  // that category.
+  let action = null;
+  if (logModal.actionId) {
+    action = (actions || []).find((a) => a.id === logModal.actionId) || null;
+  }
+  if (!action && logModal.categoryName) {
+    action = (actions || []).find((a) => a.category === logModal.categoryName) || null;
+  }
+  // Without an action we can still render against a category for backwards
+  // compat, but the new card-level flow always passes an actionId.
+  const catName = action ? action.category : logModal.categoryName;
+  const cat = (settings.categories || []).find((c) => c.name === catName);
   if (!cat) {
     closeLogModal();
     return null;
   }
-  const Icon = Icons[cat.icon] || Icons.Zap;
+  const Icon = Icons[(action && action.icon) || cat.icon] || Icons.Zap;
   const colorId = cat.color || (cat.type === "negative" ? "red" : "emerald");
   const p = paletteFor(colorId);
+  const titleText = action ? action.name : `Log ${cat.name}`;
 
   const submit = (minutes) => {
     const mins = Number(minutes);
@@ -35,10 +50,12 @@ export default function LogModal() {
       return;
     }
     const entry = logActivity({
+      actionId: action?.id || null,
+      actionName: action?.name || `${mins}m ${cat.name}`,
       category: cat.name,
       type: cat.type,
       minutes: mins,
-      icon: cat.icon,
+      icon: (action && action.icon) || cat.icon,
     });
     toast(`${mins}m ${cat.name} logged`, {
       description: `${entry.points > 0 ? "+" : ""}${entry.points} pts`,
@@ -61,7 +78,7 @@ export default function LogModal() {
           </span>
           <div className="flex-1 min-w-0">
             <p className="font-display font-extrabold uppercase tracking-tight text-base text-white truncate">
-              Log {cat.name}
+              {titleText}
             </p>
             <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
               {cat.type === "positive" ? "+20 pts / hr" : "−30 pts / hr"}

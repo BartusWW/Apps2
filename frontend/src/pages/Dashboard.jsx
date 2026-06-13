@@ -22,7 +22,7 @@ function daysAgoISO(days) {
 }
 
 export default function Dashboard() {
-  const { settings, entries } = useApp();
+  const { settings, entries, actions } = useApp();
   const categories = settings.categories || [];
   const pinnedSet = new Set(settings.pinnedCategories || []);
   const layout = settings.homeLayout || [];
@@ -37,36 +37,71 @@ export default function Dashboard() {
     return set;
   }, [entries]);
 
-  // Sort categories by sortOrder (stable when undefined).
-  const sorted = useMemo(
+  // Per-category type lookup (positive | negative).
+  const catType = useMemo(() => {
+    const m = {};
+    for (const c of categories) m[c.name] = c.type;
+    return m;
+  }, [categories]);
+
+  // Sort actions stable by category sort order.
+  const sortKey = useMemo(() => {
+    const m = {};
+    categories
+      .slice()
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .forEach((c, i) => (m[c.name] = i));
+    return m;
+  }, [categories]);
+
+  const sortedActions = useMemo(
     () =>
-      [...categories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
-    [categories],
+      (actions || [])
+        .slice()
+        .sort(
+          (a, b) =>
+            (sortKey[a.category] ?? 999) - (sortKey[b.category] ?? 999),
+        ),
+    [actions, sortKey],
   );
 
-  const positiveActive = sorted.filter(
-    (c) => c.type === "positive" && !pinnedSet.has(c.name) && activeNames.has(c.name),
+  // Group actions by type — positive → Build, negative → Eliminate.
+  // Pinned and Others use the parent category (legacy behaviour preserved).
+  const positiveActions = sortedActions.filter(
+    (a) =>
+      (catType[a.category] || a.type) === "positive" &&
+      !pinnedSet.has(a.category) &&
+      activeNames.has(a.category),
   );
-  const negativeActive = sorted.filter(
-    (c) => c.type === "negative" && !pinnedSet.has(c.name) && activeNames.has(c.name),
+  const negativeActions = sortedActions.filter(
+    (a) =>
+      (catType[a.category] || a.type) === "negative" &&
+      !pinnedSet.has(a.category) &&
+      activeNames.has(a.category),
   );
-  const others = sorted.filter(
-    (c) => !pinnedSet.has(c.name) && !activeNames.has(c.name),
+  const othersActions = sortedActions.filter(
+    (a) => !pinnedSet.has(a.category) && !activeNames.has(a.category),
   );
 
-  // If a section would otherwise be empty (e.g. brand-new user), fall back to
-  // showing every non-pinned category of that type so the dashboard isn't blank.
+  // Fallback: brand-new users see all non-pinned actions of their type.
   const positiveCats =
-    positiveActive.length === 0
-      ? sorted.filter((c) => c.type === "positive" && !pinnedSet.has(c.name))
-      : positiveActive;
+    positiveActions.length === 0
+      ? sortedActions.filter(
+          (a) =>
+            (catType[a.category] || a.type) === "positive" &&
+            !pinnedSet.has(a.category),
+        )
+      : positiveActions;
   const negativeCats =
-    negativeActive.length === 0
-      ? sorted.filter((c) => c.type === "negative" && !pinnedSet.has(c.name))
-      : negativeActive;
-  // Hide "Others" duplicates when fallback above is active.
+    negativeActions.length === 0
+      ? sortedActions.filter(
+          (a) =>
+            (catType[a.category] || a.type) === "negative" &&
+            !pinnedSet.has(a.category),
+        )
+      : negativeActions;
   const othersCats =
-    positiveActive.length === 0 && negativeActive.length === 0 ? [] : others;
+    positiveActions.length === 0 && negativeActions.length === 0 ? [] : othersActions;
 
   const renderSection = (id) => {
     switch (id) {

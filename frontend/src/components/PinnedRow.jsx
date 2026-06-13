@@ -4,20 +4,20 @@ import { useApp } from "../context/AppContext";
 import CompactActivityCard from "./CompactActivityCard";
 
 /**
- * Pinned categories appear at the top of Home, in the order the user pinned
- * them. Rendered as a 2-column compact grid for minimal scrolling.
+ * Pinned actions appear at the top of Home — they're the actions whose parent
+ * category is pinned (settings.pinnedCategories). Rendered as a 2-column
+ * compact grid for minimal scrolling.
  */
 export default function PinnedRow() {
-  const { settings } = useApp();
+  const { settings, actions } = useApp();
   const pinnedNames = settings.pinnedCategories || [];
-  const cats = settings.categories || [];
 
-  const pinnedCats = useMemo(() => {
-    const byName = Object.fromEntries(cats.map((c) => [c.name, c]));
-    return pinnedNames.map((n) => byName[n]).filter(Boolean);
-  }, [pinnedNames, cats]);
+  const pinnedActions = useMemo(() => {
+    const pinSet = new Set(pinnedNames);
+    return (actions || []).filter((a) => pinSet.has(a.category));
+  }, [pinnedNames, actions]);
 
-  if (pinnedCats.length === 0) return null;
+  if (pinnedActions.length === 0) return null;
 
   return (
     <section data-testid="pinned-row" className="space-y-2.5">
@@ -28,8 +28,8 @@ export default function PinnedRow() {
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2.5" data-testid="pinned-grid">
-        {pinnedCats.map((c) => (
-          <CompactActivityCard key={c.name} category={c} />
+        {pinnedActions.map((a) => (
+          <CompactActivityCard key={a.id} action={a} />
         ))}
       </div>
     </section>
