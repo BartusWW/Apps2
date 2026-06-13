@@ -11,6 +11,7 @@ import {
   formatDateShort,
   isInRange,
   todayISO,
+  localISO,
 } from "../lib/dateUtils";
 import { habitCompletionForDate } from "../lib/habits";
 import { computePoints } from "../lib/scoring";
@@ -24,7 +25,7 @@ function daysInMonthGrid(anchor) {
   // Always render 6 weeks for a stable layout
   for (let i = 0; i < 42; i++) {
     const date = new Date(cursor);
-    const iso = date.toISOString().slice(0, 10);
+    const iso = localISO(date);
     cells.push({
       date,
       iso,

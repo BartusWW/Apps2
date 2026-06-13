@@ -1,7 +1,17 @@
 // Date helpers — week starts Monday (ISO)
+// CRITICAL: entry dates are grouped/displayed in the USER'S LOCAL TIMEZONE.
+// Never use `Date.prototype.toISOString().slice(0,10)` for user-facing dates —
+// that returns the UTC day, which can be off by one for users east/west of UTC
+// around midnight. Use `localISO()` instead.
+export function localISO(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function todayISO() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+  return localISO(new Date());
 }
 
 export function nowTimeHHMM() {
@@ -33,11 +43,11 @@ export function startOfLastWeek(date = new Date()) {
 }
 
 export function isSameDay(dateStr, ref = new Date()) {
-  return dateStr === ref.toISOString().slice(0, 10);
+  return dateStr === localISO(ref);
 }
 
 export function entryDateTime(entry) {
-  // Combine date + time into a Date object
+  // Combine date + time into a Date object (interpreted as LOCAL time).
   return new Date(`${entry.date}T${entry.time || "00:00"}:00`);
 }
 
@@ -74,11 +84,11 @@ export function calcStudyStreak(entries) {
   today.setHours(0, 0, 0, 0);
   // Allow streak to start today OR yesterday (so if user hasn't studied today yet, streak still counts)
   const cursor = new Date(today);
-  if (!studyDays.has(cursor.toISOString().slice(0, 10))) {
+  if (!studyDays.has(localISO(cursor))) {
     cursor.setDate(cursor.getDate() - 1);
-    if (!studyDays.has(cursor.toISOString().slice(0, 10))) return 0;
+    if (!studyDays.has(localISO(cursor))) return 0;
   }
-  while (studyDays.has(cursor.toISOString().slice(0, 10))) {
+  while (studyDays.has(localISO(cursor))) {
     streak += 1;
     cursor.setDate(cursor.getDate() - 1);
   }

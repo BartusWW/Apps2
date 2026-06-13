@@ -5,6 +5,7 @@ import {
   importAllData,
   resetAllData,
 } from "../../lib/storage";
+import { localISO } from "../../lib/dateUtils";
 import { Download, Upload, Trash2, Database, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,7 +16,7 @@ function downloadJSON(payload) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `cbe-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = `cbe-backup-${localISO()}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

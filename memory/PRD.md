@@ -54,6 +54,23 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
+## Implemented (2026-02-13 — Local-Timezone Date Pipeline Fix)
+- **Root cause**: every user-facing date string came from `Date.prototype.toISOString().slice(0, 10)` which returns the **UTC** day. For users east of UTC logging in early-morning local time (or west of UTC near midnight), entries got stamped with the *neighbouring* calendar day → calendar/heatmap showed entries one day off.
+- **Fix**: introduced canonical `localISO(date = new Date())` in `lib/dateUtils.js` that reads `getFullYear/getMonth/getDate` (local accessors) and zero-pads to `YYYY-MM-DD`. Added a header comment warning future contributors never to use UTC slice for user-day grouping.
+- **Replaced every UTC slice in the day-grouping path**:
+  - `todayISO()` (used by every entry-creation call) → local
+  - `isSameDay()` → local
+  - `calcStudyStreak` cursor → local
+  - `Heatmap.jsx` cell iso + "isToday" → local
+  - `CalendarView.jsx` month grid → local
+  - `Dashboard.jsx` daysAgoISO (Others auto-bucket cutoff) → local
+  - `lib/habits.js` dayKey (streak grouping) → local
+  - `lib/goals.js` isoDay (deadline math) → local
+  - `DataManagement.jsx` + `Log.jsx` filename timestamps → local (so "today's backup" matches user expectations)
+- **Audit confirmed clean**: `grep` shows no more `toISOString().slice(0, 10)` in any user-facing code (only the warning comment in `dateUtils.js`).
+- **Verified in-page**: `getDate()` round-trips correctly through `localISO`, freshly logged entry stamps the local device date, build still passes (`CI=false npm run build` → exit 0).
+- Entry timestamps (`createdAt`/`completedAt` on goals + brain dumps) intentionally stay UTC since those are full instants, not day-grouping keys — they only render via local conversion at display time.
+
 ## Implemented (2026-02-13 — Ongoing Goal Milestones V2 — 6 Types)
 - Milestones now support 6 type-aware models: **Hours**, **Checklist**, **Counter**, **Value**, **Manual %**, **Binary**.
 - `computeMilestoneProgress(milestone, lifetimeHours)` in `lib/goalProgress.js` returns `{ pct, primary, reached, isCompletable }` per type. Wired into the ongoing snapshot so every milestone gets its own progress object.

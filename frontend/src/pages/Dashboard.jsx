@@ -9,6 +9,7 @@ import PinnedRow from "../components/PinnedRow";
 import CategorySection from "../components/CategorySection";
 import NextDeadlineWidget from "../components/NextDeadlineWidget";
 import PinnedGoalsSection from "../components/PinnedGoalsSection";
+import { localISO } from "../lib/dateUtils";
 
 // Categories with zero entries in the last N days fall into the "Others" bucket
 // so the home screen stays focused on what the user actually uses.
@@ -17,7 +18,7 @@ const OTHERS_INACTIVE_DAYS = 14;
 function daysAgoISO(days) {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+  return localISO(d);
 }
 
 export default function Dashboard() {

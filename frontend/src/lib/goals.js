@@ -4,6 +4,7 @@
 
 import { DEFAULT_DISPLAY_METRICS } from "./migrations";
 import { computeGoalProgress } from "./goalProgress";
+import { localISO } from "./dateUtils";
 
 // ---------- Display presets ----------
 // Each preset is a set of metric keys to enable; everything else is hidden.
@@ -111,7 +112,7 @@ function daysBetween(aISO, bISO) {
 }
 
 function isoDay(d = new Date()) {
-  return d.toISOString().slice(0, 10);
+  return localISO(d);
 }
 
 function dateAt(iso) {

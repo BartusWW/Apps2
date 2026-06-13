@@ -1,5 +1,5 @@
 // Habit auto-computation helpers
-import { startOfWeek, endOfWeek, isInRange, isSameDay } from "./dateUtils";
+import { startOfWeek, endOfWeek, isInRange, isSameDay, localISO } from "./dateUtils";
 export function computeHabitProgress(habit, entries, refDate = new Date()) {
   const cats = new Set(habit.categories || []);
   const isPositive = habit.type !== "negative";
@@ -83,7 +83,7 @@ export function habitCompletionForDate(habits, entries, date) {
 // habit's categories meet the goal in that period.
 
 function dayKey(d) {
-  return d.toISOString().slice(0, 10);
+  return localISO(d);
 }
 
 function periodKey(period, dateStr) {

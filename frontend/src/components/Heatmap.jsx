@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { localISO } from "../lib/dateUtils";
 
 // Compute per-day positive points + minutes for the last `days` days, ending today
 function buildDayMap(entries) {
@@ -58,7 +59,7 @@ export default function Heatmap({ entries, days = 91 }) {
     for (let i = 0; i < days; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
-      const iso = d.toISOString().slice(0, 10);
+      const iso = localISO(d);
       const data = map[iso] || { points: 0, minutes: 0 };
       const value = mode === "points" ? data.points : data.minutes;
       const isFuture = d > today;
@@ -73,7 +74,7 @@ export default function Heatmap({ entries, days = 91 }) {
         points: data.points,
         minutes: data.minutes,
         isFuture,
-        isToday: iso === today.toISOString().slice(0, 10),
+        isToday: iso === localISO(today),
       });
     }
 

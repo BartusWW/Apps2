@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import CalendarView from "../components/CalendarView";
 import { Download, Trash2, Inbox, ListChecks, CalendarDays } from "lucide-react";
-import { formatDateShort } from "../lib/dateUtils";
+import { formatDateShort, localISO } from "../lib/dateUtils";
 
 const TABS = [
   { id: "list", label: "List", icon: ListChecks },
@@ -25,7 +25,7 @@ function downloadCSV(entries) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `cbe-log-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `cbe-log-${localISO()}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
