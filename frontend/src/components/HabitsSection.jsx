@@ -1,12 +1,18 @@
 import { useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import HabitCard from "./HabitCard";
-import { computeAllHabits } from "../lib/habits";
+import { computeAllHabits, computeHabitStreaks } from "../lib/habits";
 import { Target } from "lucide-react";
 
 export default function HabitsSection() {
   const { entries, habits } = useApp();
-  const progress = useMemo(() => computeAllHabits(habits, entries), [habits, entries]);
+  const progress = useMemo(() => {
+    const list = computeAllHabits(habits, entries);
+    return list.map((p) => ({
+      ...p,
+      streaks: computeHabitStreaks(p.habit, entries),
+    }));
+  }, [habits, entries]);
 
   if (!habits || habits.length === 0) {
     return (

@@ -54,6 +54,16 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
+## Implemented (2026-02-13 — Habit Streaks)
+- **Flame badges on Habit cards** for positive habits only (negative streaks intentionally skipped to keep UI minimal).
+- `computeHabitStreaks(habit, entries)` in `lib/habits.js`:
+  - Buckets entries by day (daily habits) or Monday-anchored week (weekly habits).
+  - Counts consecutive periods where minutes ≥ goal, ending at the current period.
+  - If the current period hasn't hit goal yet, anchors on the previous period so the streak isn't broken mid-day/mid-week.
+  - Also returns the all-time best streak.
+- HabitCard renders `🔥 4d` / `🔥 3w` inline next to the period label (amber Flame icon, no actual emoji per design guidelines). Best streak appears as small grey text "· best 7d" **only when best > current and best > 1** — keeps cards quiet when there's nothing new to celebrate.
+- Pure derived computation: no schema change, no migration, existing data preserved.
+
 ## Implemented (2026-02-13 — V2.2 Dashboard & Settings Upgrade)
 - **Global LogModal**: Mounted once in `Layout.jsx`; opens from any CompactActivityCard via `openLogModal(categoryName)` context. Replaces all inline +5/15/30/60 buttons with a single sheet showing 4 presets, custom-minute input, and live-computed points preview.
 - **CategorySection grouping**: Dashboard now renders Build and Eliminate as collapsible groups, with a 2-column grid of `CompactActivityCard`s inside. Collapse state persists in `settings.collapsedCategories`.
@@ -90,9 +100,6 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
 ## Backlog
-### P0 (next)
-- **Habit Streaks (P2 → promoted)**: flame badge with consecutive-day streak count on each Habit card (uses existing auto-tracker data; no schema change)
-
 ### P1
 - Drag-and-drop category reorder (current: up/down arrow buttons)
 - Web Push for reminders (requires backend; deferred)

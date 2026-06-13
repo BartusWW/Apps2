@@ -10,8 +10,12 @@ function formatHM(mins) {
 }
 
 export default function HabitCard({ progress }) {
-  const { habit, minutes, goal, pct, status } = progress;
+  const { habit, minutes, goal, pct, status, streaks } = progress;
   const isPositive = habit.type !== "negative";
+  const current = streaks?.current || 0;
+  const best = streaks?.best || 0;
+  const unit = habit.period === "weekly" ? "w" : "d";
+  const showBest = best > current && best > 1;
 
   const statusMap = {
     completed: { label: "Completed", color: "text-emerald-400", bar: "bg-emerald-500", icon: CheckCircle2 },
@@ -33,9 +37,31 @@ export default function HabitCard({ progress }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-white truncate">{habit.name}</p>
-          <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
-            {habit.period === "weekly" ? "Weekly" : "Daily"} · Goal {formatHM(goal)}
-            {habit.categories?.length > 1 ? ` · ${habit.categories.length} cats` : ""}
+          <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+            <span>
+              {habit.period === "weekly" ? "Weekly" : "Daily"} · Goal {formatHM(goal)}
+              {habit.categories?.length > 1 ? ` · ${habit.categories.length} cats` : ""}
+            </span>
+            {isPositive && current > 0 && (
+              <span
+                className="inline-flex items-center gap-0.5 text-amber-400 font-semibold"
+                data-testid={`habit-streak-${habit.id}`}
+                title={`Current streak: ${current} ${habit.period === "weekly" ? "week(s)" : "day(s)"}`}
+              >
+                <Flame size={10} strokeWidth={2.5} fill="currentColor" />
+                {current}
+                {unit}
+              </span>
+            )}
+            {isPositive && showBest && (
+              <span
+                className="text-neutral-500"
+                data-testid={`habit-best-${habit.id}`}
+                title={`Best streak: ${best} ${habit.period === "weekly" ? "week(s)" : "day(s)"}`}
+              >
+                · best {best}{unit}
+              </span>
+            )}
           </p>
         </div>
         <span
