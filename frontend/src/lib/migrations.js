@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "./storage";
 import { DEFAULT_CATEGORY_COLORS } from "./categoryColors";
 
 const SCHEMA_KEY = "cbe.schema.version";
-const TARGET_VERSION = 8;
+const TARGET_VERSION = 9;
 
 // Default categories (v2 — drives Quick Add UX, v3 adds color)
 export const DEFAULT_CATEGORIES = [
@@ -327,6 +327,58 @@ function migrate_7_to_8() {
   setVersion(8);
 }
 
+// v8 → v9: milestones gain a `type` field (default "hours" for legacy data) +
+// per-type sub-fields. Strictly additive — preserves every legacy hour-target.
+function migrate_8_to_9() {
+  const raw = localStorage.getItem("cbe.goals.v1");
+  if (!raw) {
+    setVersion(9);
+    return;
+  }
+  try {
+    const goals = JSON.parse(raw);
+    if (!Array.isArray(goals)) {
+      setVersion(9);
+      return;
+    }
+    const next = goals.map((g) => {
+      const ms = g.progress?.ongoing?.milestones;
+      if (!Array.isArray(ms)) return g;
+      const upgraded = ms.map((m) => ({
+        type: m.type || "hours",
+        // type-agnostic fields
+        id: m.id,
+        label: m.label || "",
+        reached: m.reached === true,
+        // hours
+        hoursTarget: Number(m.hoursTarget) || 0,
+        // counter
+        counterCurrent: Number(m.counterCurrent) || 0,
+        counterTarget: Number(m.counterTarget) || 0,
+        // value
+        valueCurrent: Number(m.valueCurrent) || 0,
+        valueTarget: Number(m.valueTarget) || 0,
+        valueUnit: m.valueUnit || "",
+        // manual
+        manualPct: Math.max(0, Math.min(100, Number(m.manualPct) || 0)),
+        // checklist
+        checklist: Array.isArray(m.checklist) ? m.checklist : [],
+      }));
+      return {
+        ...g,
+        progress: {
+          ...g.progress,
+          ongoing: { ...(g.progress?.ongoing || {}), milestones: upgraded },
+        },
+      };
+    });
+    localStorage.setItem("cbe.goals.v1", JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+  setVersion(9);
+}
+
 export function runMigrations() {
   const current = getVersion();
   if (current >= TARGET_VERSION) return { from: current, to: current };
@@ -358,6 +410,10 @@ export function runMigrations() {
   if (v < 8) {
     migrate_7_to_8();
     v = 8;
+  }
+  if (v < 9) {
+    migrate_8_to_9();
+    v = 9;
   }
   return { from: current, to: v };
 }

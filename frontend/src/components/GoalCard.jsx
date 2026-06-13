@@ -308,11 +308,15 @@ export default function GoalCard({
               className="mt-2 flex items-center justify-between gap-2"
               data-testid={`goal-next-milestone-${goal.id}`}
             >
-              <span className="text-[10px] uppercase tracking-widest text-neutral-500">
-                Next: {prog.ongoing.nextMilestone.label || `${prog.ongoing.nextMilestone.hoursTarget}h`}
+              <span className="text-[10px] uppercase tracking-widest text-neutral-500 truncate">
+                Next:{" "}
+                <span className="text-white">
+                  {prog.ongoing.nextMilestone.label ||
+                    `${prog.ongoing.nextMilestone.hoursTarget || ""}h milestone`}
+                </span>
               </span>
               <span className={`text-[10px] uppercase tracking-widest font-semibold ${p.text}`}>
-                {prog.ongoing.nextMilestone.progressPct}%
+                {prog.ongoing.nextMilestone.progress?.primary || `${prog.ongoing.nextMilestone.progressPct}%`}
               </span>
             </div>
           )}

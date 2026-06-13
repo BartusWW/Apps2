@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as Icons from "lucide-react";
-import { X, Check, Trophy } from "lucide-react";
+import { X, Check, Trophy, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import { paletteFor } from "../lib/categoryColors";
@@ -25,7 +25,10 @@ export default function TrackGoalModal({ open, goal, onClose }) {
         manualPct: Number(goal.progress?.manualPct) || 0,
         valueCurrent: Number(goal.progress?.valueCurrent) || 0,
         checklist: (goal.progress?.checklist || []).map((c) => ({ ...c })),
-        milestones: (goal.progress?.ongoing?.milestones || []).map((m) => ({ ...m })),
+        milestones: (goal.progress?.ongoing?.milestones || []).map((m) => ({
+          ...m,
+          checklist: Array.isArray(m.checklist) ? m.checklist.map((c) => ({ ...c })) : [],
+        })),
       }
     : null;
   const [draft, setDraft] = useState(seed);
@@ -261,44 +264,186 @@ export default function TrackGoalModal({ open, goal, onClose }) {
                 <p className="text-xs text-neutral-500">No milestones yet.</p>
               )}
               {draft.milestones.map((m) => {
-                const auto = preview.ongoing.lifetimeMinutes / 60 >= (Number(m.hoursTarget) || 0);
-                const checked = m.reached === true || auto;
+                const updateM = (patch) =>
+                  setDraft({
+                    ...draft,
+                    milestones: draft.milestones.map((x) =>
+                      x.id === m.id ? { ...x, ...patch } : x,
+                    ),
+                  });
+
+                const mType = m.type || "hours";
+                const lifetimeH = preview.ongoing.lifetimeMinutes / 60;
+                // Auto-reached when measurable types hit target.
+                let autoReached = false;
+                let primaryText = m.label || "milestone";
+                if (mType === "hours") {
+                  autoReached = lifetimeH >= (Number(m.hoursTarget) || 0);
+                  primaryText = `${Math.round(lifetimeH * 10) / 10}h / ${m.hoursTarget}h`;
+                } else if (mType === "counter") {
+                  const tgt = Number(m.counterTarget) || 0;
+                  autoReached = tgt > 0 && (Number(m.counterCurrent) || 0) >= tgt;
+                  primaryText = `${m.counterCurrent} / ${m.counterTarget}`;
+                } else if (mType === "value") {
+                  const tgt = Number(m.valueTarget) || 0;
+                  autoReached = tgt > 0 && (Number(m.valueCurrent) || 0) >= tgt;
+                  primaryText = `${m.valueUnit || ""}${m.valueCurrent} / ${m.valueTarget}`;
+                } else if (mType === "manual") {
+                  autoReached = (Number(m.manualPct) || 0) >= 100;
+                  primaryText = `${m.manualPct}%`;
+                } else if (mType === "checklist") {
+                  const items = m.checklist || [];
+                  const done = items.filter((i) => i.done).length;
+                  autoReached = items.length > 0 && done === items.length;
+                  primaryText = `${done} / ${items.length}`;
+                }
+                const checked = m.reached === true || autoReached;
+
                 return (
                   <li
                     key={m.id}
-                    className="flex items-center gap-2 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2"
+                    className="bg-neutral-950 border border-white/10 rounded-lg p-2.5 space-y-2"
                     data-testid={`track-milestone-row-${m.id}`}
                   >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDraft({
-                          ...draft,
-                          milestones: draft.milestones.map((x) =>
-                            x.id === m.id ? { ...x, reached: !x.reached } : x,
-                          ),
-                        })
-                      }
-                      data-testid={`track-milestone-toggle-${m.id}`}
-                      className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 ${
-                        checked
-                          ? "bg-amber-500 border-amber-500"
-                          : "border-white/20"
-                      }`}
-                      aria-label="Toggle"
-                    >
-                      {checked && <Trophy size={11} strokeWidth={3} className="text-black" />}
-                    </button>
-                    <span
-                      className={`text-sm flex-1 ${
-                        checked ? "text-amber-300" : "text-white"
-                      }`}
-                    >
-                      {m.label || `${m.hoursTarget}h milestone`}
-                    </span>
-                    <span className="text-[10px] uppercase tracking-widest text-neutral-500">
-                      {m.hoursTarget}h
-                    </span>
+                    {/* Header line */}
+                    <div className="flex items-center gap-2">
+                      {/* For binary, the toggle IS the achievement. For other types
+                          the dot is read-only (auto from values). */}
+                      <button
+                        type="button"
+                        onClick={() => mType === "binary" && updateM({ reached: !m.reached })}
+                        data-testid={`track-milestone-toggle-${m.id}`}
+                        disabled={mType !== "binary"}
+                        className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 ${
+                          checked ? "bg-amber-500 border-amber-500" : "border-white/20"
+                        } ${mType !== "binary" ? "opacity-80 cursor-default" : ""}`}
+                        aria-label="Achievement"
+                      >
+                        {checked && <Trophy size={11} strokeWidth={3} className="text-black" />}
+                      </button>
+                      <span
+                        className={`flex-1 text-sm ${checked ? "text-amber-300" : "text-white"}`}
+                      >
+                        {m.label || `${m.hoursTarget || ""}${mType === "hours" ? "h milestone" : " milestone"}`}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-widest text-neutral-500">
+                        {primaryText}
+                      </span>
+                    </div>
+
+                    {/* Per-type quick controls */}
+                    {mType === "counter" && (
+                      <div className="flex items-center gap-2" data-testid={`mtrack-counter-${m.id}`}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateM({ counterCurrent: Math.max(0, (Number(m.counterCurrent) || 0) - 1) })
+                          }
+                          data-testid={`mtrack-counter-dec-${m.id}`}
+                          className="p-1.5 rounded-md border border-white/15 text-neutral-200 hover:bg-white/5"
+                          aria-label="Decrease"
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          value={m.counterCurrent}
+                          onChange={(e) => updateM({ counterCurrent: e.target.value })}
+                          data-testid={`mtrack-counter-input-${m.id}`}
+                          className="w-20 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-sm text-white text-center focus:outline-none focus:border-amber-500/50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateM({ counterCurrent: (Number(m.counterCurrent) || 0) + 1 })
+                          }
+                          data-testid={`mtrack-counter-inc-${m.id}`}
+                          className="p-1.5 rounded-md border border-white/15 text-neutral-200 hover:bg-white/5"
+                          aria-label="Increase"
+                        >
+                          <Plus size={12} />
+                        </button>
+                        <span className="text-[10px] uppercase tracking-widest text-neutral-500">
+                          / {m.counterTarget}
+                        </span>
+                      </div>
+                    )}
+
+                    {mType === "value" && (
+                      <div className="flex items-center gap-2" data-testid={`mtrack-value-${m.id}`}>
+                        <span className="text-[10px] uppercase tracking-widest text-neutral-500">
+                          Current
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={m.valueCurrent}
+                          onChange={(e) => updateM({ valueCurrent: e.target.value })}
+                          data-testid={`mtrack-value-input-${m.id}`}
+                          className="flex-1 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                        />
+                        <span className="text-[10px] uppercase tracking-widest text-neutral-500">
+                          / {m.valueUnit}
+                          {m.valueTarget}
+                        </span>
+                      </div>
+                    )}
+
+                    {mType === "manual" && (
+                      <div className="space-y-1.5" data-testid={`mtrack-manual-${m.id}`}>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={m.manualPct}
+                          onChange={(e) => updateM({ manualPct: Number(e.target.value) })}
+                          data-testid={`mtrack-manual-slider-${m.id}`}
+                          className="w-full accent-amber-500"
+                        />
+                      </div>
+                    )}
+
+                    {mType === "checklist" && (
+                      <ul className="space-y-1" data-testid={`mtrack-checklist-${m.id}`}>
+                        {(m.checklist || []).length === 0 && (
+                          <p className="text-[10px] uppercase tracking-widest text-neutral-500">
+                            No items. Open Edit to add.
+                          </p>
+                        )}
+                        {(m.checklist || []).map((c) => (
+                          <li
+                            key={c.id}
+                            className="flex items-center gap-2 bg-neutral-900 border border-white/10 rounded px-2 py-1.5"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateM({
+                                  checklist: m.checklist.map((x) =>
+                                    x.id === c.id ? { ...x, done: !x.done } : x,
+                                  ),
+                                })
+                              }
+                              data-testid={`mtrack-checklist-toggle-${m.id}-${c.id}`}
+                              className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${
+                                c.done ? "bg-amber-500 border-amber-500" : "border-white/20"
+                              }`}
+                              aria-label="Toggle"
+                            >
+                              {c.done && <Check size={10} strokeWidth={3} className="text-black" />}
+                            </button>
+                            <span
+                              className={`text-xs flex-1 ${c.done ? "line-through text-neutral-500" : "text-white"}`}
+                            >
+                              {c.label || "(unnamed)"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {/* Hours type — display-only here; user logs activities to update it */}
                   </li>
                 );
               })}

@@ -54,6 +54,17 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
+## Implemented (2026-02-13 — Ongoing Goal Milestones V2 — 6 Types)
+- Milestones now support 6 type-aware models: **Hours**, **Checklist**, **Counter**, **Value**, **Manual %**, **Binary**.
+- `computeMilestoneProgress(milestone, lifetimeHours)` in `lib/goalProgress.js` returns `{ pct, primary, reached, isCompletable }` per type. Wired into the ongoing snapshot so every milestone gets its own progress object.
+- **Sorting**: incomplete milestones surface first (by lowest %), then completed ones — the user always sees the next achievement to chase at the top.
+- **GoalForm** ongoing editor: per-milestone Type dropdown reveals appropriate fields (hours target / counter current+target / value+target+unit / manual % / binary toggle / inline checklist sub-items with add/delete).
+- **TrackGoalModal** ongoing milestone rows are now type-aware: counter +/- buttons, value input, manual slider, binary single-tap toggle, inline checklist sub-toggles, hours stays read-only (fills from logged time).
+- **Home `PinnedGoalsSection`** now surfaces the next incomplete milestone with type-correct primary text (e.g. `100h reading · 3h / 100h`, `BW Launch · 0 / 3`, `100 Posts · 37/100`, `Revenue · EUR 500/1000`).
+- **GoalCard** next-milestone preview also uses the typed primary text instead of "X%".
+- **Migration v8→v9** (non-destructive): upgrades every legacy milestone with `type:"hours"` + sub-field defaults. Existing hour-target data is preserved.
+- **Verified live**: schema=9, all 6 types persisted correctly through one Track save (counter 37→39, value 350→500, manual 70→100, binary false→true, checklist 0/3→2/3), next-milestone display refreshed dynamically as the checklist crossed thresholds.
+
 ## Implemented (2026-02-13 — Quick Tracking & Goal Pinning V1)
 - **TRACK button** on every active goal card (big, right-side, emerald) opens a type-aware quick sheet — never the structural Edit form. Cleanly separates "change the goal" (Edit) from "update progress" (Track).
 - `TrackGoalModal` adapts per progress type:

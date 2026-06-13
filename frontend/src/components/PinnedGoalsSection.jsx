@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import * as Icons from "lucide-react";
-import { Pin, Play, ChevronRight } from "lucide-react";
+import { Pin, Play, ChevronRight, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { computeGoalsSnapshot } from "../lib/goals";
@@ -60,6 +60,7 @@ export default function PinnedGoalsSection() {
           const p = paletteFor(s.goal.color);
           const ds = s.deadlineStats;
           const prog = s.progress;
+          const nextMs = prog?.ongoing?.nextMilestone;
           return (
             <li
               key={s.goal.id}
@@ -92,6 +93,20 @@ export default function PinnedGoalsSection() {
                     </span>
                   )}
                 </p>
+                {/* Next milestone for ongoing goals */}
+                {nextMs && (
+                  <p
+                    className="text-[10px] uppercase tracking-widest text-amber-400 mt-0.5 truncate flex items-center gap-1"
+                    data-testid={`pinned-goal-next-${s.goal.id}`}
+                  >
+                    <Trophy size={9} fill="currentColor" />
+                    Next: <span className="text-white">{nextMs.label || "milestone"}</span>
+                    <span className="text-neutral-500">·</span>
+                    <span className={p.text}>
+                      {nextMs.progress?.primary || `${nextMs.progressPct}%`}
+                    </span>
+                  </p>
+                )}
                 {/* Progress bar (non-ongoing) */}
                 {prog && prog.pct !== null && (
                   <div className="h-1 mt-1.5 bg-neutral-800 rounded-full overflow-hidden">

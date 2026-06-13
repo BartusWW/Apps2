@@ -6,7 +6,7 @@ import { COLOR_OPTIONS, paletteFor } from "../lib/categoryColors";
 import IconPicker from "./IconPicker";
 import { useApp } from "../context/AppContext";
 import { DISPLAY_PRESETS, metricsForPreset, DEFAULT_DISPLAY_METRICS } from "../lib/goals";
-import { PROGRESS_TYPES } from "../lib/goalProgress";
+import { PROGRESS_TYPES, MILESTONE_TYPES } from "../lib/goalProgress";
 
 const blank = {
   name: "",
@@ -122,7 +122,20 @@ export default function GoalForm({ open, initial, onSave, onClose }) {
   const addMilestone = () => {
     const next = [
       ...(form.progress.ongoing.milestones || []),
-      { id: genId(), label: "", hoursTarget: 0 },
+      {
+        id: genId(),
+        type: "hours",
+        label: "",
+        reached: false,
+        hoursTarget: 0,
+        counterCurrent: 0,
+        counterTarget: 0,
+        valueCurrent: 0,
+        valueTarget: 0,
+        valueUnit: "",
+        manualPct: 0,
+        checklist: [],
+      },
     ];
     setForm((f) => ({
       ...f,
@@ -144,6 +157,29 @@ export default function GoalForm({ open, initial, onSave, onClose }) {
       ...f,
       progress: { ...f.progress, ongoing: { ...f.progress.ongoing, milestones: next } },
     }));
+  };
+
+  const addMilestoneChecklistItem = (mid) => {
+    updateMilestone(mid, {
+      checklist: [
+        ...((form.progress.ongoing.milestones.find((m) => m.id === mid)?.checklist) || []),
+        { id: genId(), label: "", done: false },
+      ],
+    });
+  };
+  const updateMilestoneChecklistItem = (mid, cid, patch) => {
+    const m = form.progress.ongoing.milestones.find((x) => x.id === mid);
+    if (!m) return;
+    updateMilestone(mid, {
+      checklist: (m.checklist || []).map((c) => (c.id === cid ? { ...c, ...patch } : c)),
+    });
+  };
+  const deleteMilestoneChecklistItem = (mid, cid) => {
+    const m = form.progress.ongoing.milestones.find((x) => x.id === mid);
+    if (!m) return;
+    updateMilestone(mid, {
+      checklist: (m.checklist || []).filter((c) => c.id !== cid),
+    });
   };
 
   const setPreset = (presetId) => {
@@ -576,42 +612,226 @@ export default function GoalForm({ open, initial, onSave, onClose }) {
                 </div>
               </div>
               <p className="text-[10px] uppercase tracking-widest text-neutral-500">
-                Milestones (optional)
+                Milestones (optional — supports Hours, Checklist, Counter, Value, Manual %, Binary)
               </p>
-              <ul className="space-y-1.5" data-testid="ongoing-milestones">
+              <ul className="space-y-2" data-testid="ongoing-milestones">
                 {(form.progress.ongoing.milestones || []).map((m) => (
                   <li
                     key={m.id}
-                    className="flex items-center gap-2 bg-neutral-950 border border-white/10 rounded-lg px-2 py-1.5"
+                    className="bg-neutral-950 border border-white/10 rounded-lg p-2.5 space-y-2"
                     data-testid={`milestone-row-${m.id}`}
                   >
-                    <input
-                      type="text"
-                      value={m.label}
-                      onChange={(e) => updateMilestone(m.id, { label: e.target.value })}
-                      placeholder="e.g. 100h reading"
-                      data-testid={`milestone-label-${m.id}`}
-                      className="flex-1 bg-transparent text-sm text-white focus:outline-none"
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      value={m.hoursTarget}
-                      onChange={(e) => updateMilestone(m.id, { hoursTarget: e.target.value })}
-                      placeholder="Hours"
-                      data-testid={`milestone-hours-${m.id}`}
-                      className="w-16 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-xs text-white text-right focus:outline-none focus:border-sky-500/50"
-                    />
-                    <span className="text-[10px] text-neutral-500">h</span>
-                    <button
-                      type="button"
-                      onClick={() => deleteMilestone(m.id)}
-                      data-testid={`milestone-delete-${m.id}`}
-                      className="p-1 text-neutral-500 hover:text-red-400"
-                      aria-label="Delete"
-                    >
-                      <Trash2 size={11} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={m.label}
+                        onChange={(e) => updateMilestone(m.id, { label: e.target.value })}
+                        placeholder="Milestone label"
+                        data-testid={`milestone-label-${m.id}`}
+                        className="flex-1 bg-transparent text-sm text-white focus:outline-none border-b border-transparent focus:border-sky-500/40"
+                      />
+                      <select
+                        value={m.type || "hours"}
+                        onChange={(e) => updateMilestone(m.id, { type: e.target.value })}
+                        data-testid={`milestone-type-${m.id}`}
+                        className="bg-neutral-900 border border-white/10 rounded px-2 py-1 text-[10px] uppercase tracking-widest text-neutral-300 focus:outline-none focus:border-sky-500/50"
+                      >
+                        {MILESTONE_TYPES.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => deleteMilestone(m.id)}
+                        data-testid={`milestone-delete-${m.id}`}
+                        className="p-1 text-neutral-500 hover:text-red-400"
+                        aria-label="Delete"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+
+                    {/* Per-type fields */}
+                    {(m.type === "hours" || !m.type) && (
+                      <div className="flex items-center gap-2" data-testid={`mtype-hours-${m.id}`}>
+                        <label className="text-[10px] uppercase tracking-widest text-neutral-500 shrink-0">
+                          Target hours
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={m.hoursTarget}
+                          onChange={(e) => updateMilestone(m.id, { hoursTarget: e.target.value })}
+                          data-testid={`milestone-hours-${m.id}`}
+                          className="w-24 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-xs text-white text-right focus:outline-none focus:border-sky-500/50"
+                        />
+                      </div>
+                    )}
+
+                    {m.type === "counter" && (
+                      <div className="grid grid-cols-2 gap-2" data-testid={`mtype-counter-${m.id}`}>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                            Current
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={m.counterCurrent}
+                            onChange={(e) => updateMilestone(m.id, { counterCurrent: e.target.value })}
+                            data-testid={`milestone-counter-current-${m.id}`}
+                            className="w-full mt-1 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-sky-500/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                            Target
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={m.counterTarget}
+                            onChange={(e) => updateMilestone(m.id, { counterTarget: e.target.value })}
+                            data-testid={`milestone-counter-target-${m.id}`}
+                            className="w-full mt-1 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-sky-500/50"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {m.type === "value" && (
+                      <div className="grid grid-cols-3 gap-2" data-testid={`mtype-value-${m.id}`}>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                            Current
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={m.valueCurrent}
+                            onChange={(e) => updateMilestone(m.id, { valueCurrent: e.target.value })}
+                            data-testid={`milestone-value-current-${m.id}`}
+                            className="w-full mt-1 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-sky-500/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                            Target
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={m.valueTarget}
+                            onChange={(e) => updateMilestone(m.id, { valueTarget: e.target.value })}
+                            data-testid={`milestone-value-target-${m.id}`}
+                            className="w-full mt-1 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-sky-500/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                            Unit
+                          </label>
+                          <input
+                            type="text"
+                            value={m.valueUnit}
+                            onChange={(e) => updateMilestone(m.id, { valueUnit: e.target.value })}
+                            placeholder="€"
+                            data-testid={`milestone-value-unit-${m.id}`}
+                            className="w-full mt-1 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-sky-500/50"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {m.type === "manual" && (
+                      <div className="flex items-center gap-2" data-testid={`mtype-manual-${m.id}`}>
+                        <label className="text-[10px] uppercase tracking-widest text-neutral-500 shrink-0">
+                          Progress %
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={m.manualPct}
+                          onChange={(e) => updateMilestone(m.id, { manualPct: e.target.value })}
+                          data-testid={`milestone-manual-${m.id}`}
+                          className="w-24 bg-neutral-900 border border-white/10 rounded px-2 py-1 text-xs text-white text-right focus:outline-none focus:border-sky-500/50"
+                        />
+                      </div>
+                    )}
+
+                    {m.type === "binary" && (
+                      <div className="flex items-center gap-2" data-testid={`mtype-binary-${m.id}`}>
+                        <button
+                          type="button"
+                          onClick={() => updateMilestone(m.id, { reached: !m.reached })}
+                          data-testid={`milestone-binary-${m.id}`}
+                          className={`text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-md border flex items-center gap-1.5 ${
+                            m.reached
+                              ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                              : "border-white/15 text-neutral-300 hover:bg-white/5"
+                          }`}
+                        >
+                          {m.reached ? "Achieved" : "Not yet"}
+                        </button>
+                        <span className="text-[10px] uppercase tracking-widest text-neutral-500">
+                          Toggle later from Track
+                        </span>
+                      </div>
+                    )}
+
+                    {m.type === "checklist" && (
+                      <div className="space-y-1.5" data-testid={`mtype-checklist-${m.id}`}>
+                        <ul className="space-y-1">
+                          {(m.checklist || []).map((c) => (
+                            <li
+                              key={c.id}
+                              className="flex items-center gap-2 bg-neutral-900 border border-white/10 rounded px-2 py-1"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => updateMilestoneChecklistItem(m.id, c.id, { done: !c.done })}
+                                className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${
+                                  c.done ? "bg-sky-500 border-sky-500" : "border-white/20"
+                                }`}
+                                aria-label="Toggle"
+                              >
+                                {c.done && <Check size={10} strokeWidth={3} className="text-black" />}
+                              </button>
+                              <input
+                                type="text"
+                                value={c.label}
+                                onChange={(e) =>
+                                  updateMilestoneChecklistItem(m.id, c.id, { label: e.target.value })
+                                }
+                                placeholder="Sub-item"
+                                className={`flex-1 bg-transparent text-xs text-white focus:outline-none ${
+                                  c.done ? "line-through text-neutral-500" : ""
+                                }`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => deleteMilestoneChecklistItem(m.id, c.id)}
+                                className="p-0.5 text-neutral-500 hover:text-red-400"
+                                aria-label="Delete"
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                        <button
+                          type="button"
+                          onClick={() => addMilestoneChecklistItem(m.id)}
+                          data-testid={`milestone-checklist-add-${m.id}`}
+                          className="text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1 rounded-md border border-sky-500/40 text-sky-400 hover:bg-sky-500/10"
+                        >
+                          + Sub-item
+                        </button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
