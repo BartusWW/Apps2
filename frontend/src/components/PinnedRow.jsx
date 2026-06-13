@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import { Pin } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import QuickAddCard from "./QuickAddCard";
+import CompactActivityCard from "./CompactActivityCard";
 
 /**
- * Pinned categories appear at the top of Home, in the order the user pinned them.
+ * Pinned categories appear at the top of Home, in the order the user pinned
+ * them. Rendered as a 2-column compact grid for minimal scrolling.
  */
 export default function PinnedRow() {
   const { settings } = useApp();
@@ -26,9 +27,9 @@ export default function PinnedRow() {
           Pinned
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5" data-testid="pinned-grid">
         {pinnedCats.map((c) => (
-          <QuickAddCard key={c.name} category={c} />
+          <CompactActivityCard key={c.name} category={c} />
         ))}
       </div>
     </section>

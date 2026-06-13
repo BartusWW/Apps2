@@ -54,21 +54,56 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
+## Implemented (2026-02-13 — V2.2 Dashboard & Settings Upgrade)
+- **Global LogModal**: Mounted once in `Layout.jsx`; opens from any CompactActivityCard via `openLogModal(categoryName)` context. Replaces all inline +5/15/30/60 buttons with a single sheet showing 4 presets, custom-minute input, and live-computed points preview.
+- **CategorySection grouping**: Dashboard now renders Build and Eliminate as collapsible groups, with a 2-column grid of `CompactActivityCard`s inside. Collapse state persists in `settings.collapsedCategories`.
+- **CompactActivityCard**: Single-tap log + inline pin/unpin. Each card honors per-category color/icon.
+- **Pinned 2-col grid**: `PinnedRow` now uses `CompactActivityCard` for parity with category sections.
+- **Auto "Others" bucket** (P1): Categories with 0 entries in the last 14 days drop into a collapsed-by-default "Others" `CategorySection` at the bottom of the dashboard. Falls back gracefully for brand-new users (no Others until at least one active category exists).
+- **Visual IconPicker** wired into `CategoriesEditor`: replaces the free-text Lucide name input with a searchable modal (curated `ICON_LIBRARY` + `POPULAR_ICONS`). Live preview of selected icon + color in the form.
+- **Manual category sort**: Up/down arrows per row in `CategoriesEditor` using `moveCategoryOrder`. First/last buttons auto-disable.
+- **Data Migration v3→v4** (non-destructive): adds `sortOrder` to every category and an empty `collapsedCategories` array. Fixed a pre-existing broken `migrations.js` (duplicate functions + orphan code) that was preventing compilation.
+- Modal z-index bumped to `z-[60]` so LogModal and IconPicker sit cleanly above the bottom-nav.
+
+## Implemented (2026-02-12 — V2.1 Personal Dev OS)
+- Per-category color palette + Tailwind class map (`categoryColors.js`)
+- Brain Dump floating action button + global note bucket
+- Appearance Editor: customize home layout sections (show/hide + reorder)
+- Calendar + Heatmap merged into a unified view
+
+## Implemented (2026-02-12 — V2.0 Smart Habits + Data Safety)
+- Smart Habits auto-computed from logs (daily/weekly periods, category-based)
+- Data export/import JSON in Settings
+- Calendar history view with per-day entry list
+
+## Implemented (2026-02-11 — Update 3: Heatmap, Editable Goal, Reminders)
+- **90-Day Heatmap** on Review page: GitHub-style grid (7×13) with Points/Minutes mode toggle, sky-tinted intensity buckets, today ring, hover tooltip, legend, and totals summary (active days · points · hours)
+- **Weekly Goal editable in Settings** → Preferences section: hours-per-week input + Save; Time view's Weekly Goal card now reads from `settings.weeklyGoalMinutes` (localStorage, default 20h)
+- **Daily Reminder**: browser Notifications API integration with On/Off toggle in Preferences and `<input type="time">` picker (default 08:00). `useDailyReminder` hook checks every 60s while app is open; fires once per day if no positive dev entry logged yet (or a "nice, room for one more?" variant if user already logged something). Honors `lastReminderDate` to prevent duplicates. Note: only fires while the app tab is open (no service worker / push backend).
+- New context API: `settings` + `updateSettings(patch)`; new storage key `cbe.settings.v1`
+
+## Implemented (2026-02-11 — Update 2: Score/Time Carousel)
+- Swipeable Embla carousel at top of Dashboard with two views: SCORE & TIME
+- Pill toggle (emerald=Score, sky=Time) + dot indicator both color-shift on active view
+- SCORE VIEW: existing today/weekly score, Build vs Drain card (includes streak + dev hours), Best Category, Top Drain
+- TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
+- Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
+
 ## Backlog
+### P0 (next)
+- **Habit Streaks (P2 → promoted)**: flame badge with consecutive-day streak count on each Habit card (uses existing auto-tracker data; no schema change)
+
 ### P1
-- PWA install + offline support (manifest + service worker)
-- Daily push reminders ("Log your study session")
+- Drag-and-drop category reorder (current: up/down arrow buttons)
+- Web Push for reminders (requires backend; deferred)
 - Optional cloud sync (Mongo backend) for multi-device users
-- Calendar/heatmap of last 90 days (GitHub-style)
 
 ### P2
-- Custom icon picker in Settings (currently Lucide name string)
-- Reorder + favorite actions on Dashboard
-- Weekly goals (target points / target hours) with progress ring
 - Light theme toggle (currently dark only)
 - Share weekly card as PNG (Instagram-friendly)
+- Anchor / additional icons in curated library
 
 ## Known Limitations
 - Pure client-side: data lives in browser; clearing site data wipes everything
 - No multi-user / no auth
-- Icons must reference valid Lucide component names (defaults to Zap if invalid)
+- Icons restricted to curated `ICON_LIBRARY` (visual picker); type any valid Lucide name still works programmatically if needed

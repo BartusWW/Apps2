@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { LayoutDashboard, ListChecks, BarChart3, Settings as SettingsIcon, Flame } from "lucide-react";
 import BrainDumpFab from "./BrainDumpFab";
+import LogModal from "./LogModal";
 
 const navItems = [
   { to: "/", label: "Home", icon: LayoutDashboard, testId: "nav-dashboard", end: true },
@@ -38,6 +39,9 @@ export default function Layout() {
 
       {/* Floating Brain Dump */}
       <BrainDumpFab />
+
+      {/* Global Log Modal (triggered by openLogModal in context) */}
+      <LogModal />
 
       {/* Bottom navigation */}
       <nav
