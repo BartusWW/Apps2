@@ -10,6 +10,9 @@ import {
   Calendar,
   Maximize2,
   Minimize2,
+  Play,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { paletteFor } from "../lib/categoryColors";
 import { formatHours, formatDuration, daysEarlyOrLate } from "../lib/goals";
@@ -65,6 +68,8 @@ export default function GoalCard({
   onArchive,
   onComplete,
   onDelete,
+  onTrack,
+  onPin,
 }) {
   const {
     goal,
@@ -138,6 +143,17 @@ export default function GoalCard({
             {badge.label}
           </span>
         )}
+        {onTrack && (
+          <button
+            type="button"
+            onClick={() => onTrack(goal)}
+            data-testid={`goal-track-${goal.id}`}
+            className="flex items-center gap-1 text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1.5 rounded-md bg-emerald-500 text-black hover:bg-emerald-400"
+          >
+            <Play size={10} strokeWidth={3} fill="currentColor" />
+            Track
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -175,6 +191,17 @@ export default function GoalCard({
           >
             {badge.label}
           </span>
+        )}
+        {onTrack && (
+          <button
+            type="button"
+            onClick={() => onTrack(goal)}
+            data-testid={`goal-track-${goal.id}`}
+            className="flex items-center gap-1 text-xs uppercase tracking-widest font-semibold px-3 py-2 rounded-lg bg-emerald-500 text-black hover:bg-emerald-400 shadow-sm"
+          >
+            <Play size={12} strokeWidth={3} fill="currentColor" />
+            Track
+          </button>
         )}
         <button
           type="button"
@@ -420,6 +447,29 @@ export default function GoalCard({
           {/* Actions */}
           {showActions && (
             <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+              {onPin && (
+                <button
+                  type="button"
+                  onClick={() => onPin(goal)}
+                  data-testid={`goal-pin-${goal.id}`}
+                  className={`text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1.5 rounded-md border flex items-center gap-1 ${
+                    goal.pinned
+                      ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                      : "border-white/15 text-neutral-300 hover:bg-white/5"
+                  }`}
+                  aria-label={goal.pinned ? "Unpin" : "Pin"}
+                >
+                  {goal.pinned ? (
+                    <>
+                      <Pin size={11} fill="currentColor" /> Pinned
+                    </>
+                  ) : (
+                    <>
+                      <PinOff size={11} /> Pin
+                    </>
+                  )}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onEdit?.(goal)}
@@ -432,9 +482,9 @@ export default function GoalCard({
                 type="button"
                 onClick={() => onComplete?.(goal)}
                 data-testid={`goal-complete-${goal.id}`}
-                className="text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1.5 rounded-md bg-emerald-500 text-black hover:bg-emerald-400 flex items-center gap-1"
+                className="text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1.5 rounded-md border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-1"
               >
-                <CheckCircle2 size={11} /> Mark Completed
+                <CheckCircle2 size={11} /> Complete
               </button>
               <button
                 type="button"

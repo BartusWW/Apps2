@@ -5,6 +5,7 @@ const SECTION_LABELS = {
   carousel: "Main Score (Score / Time)",
   dailyPlan: "Today's Focus",
   nextDeadline: "Next Deadline Widget",
+  pinnedGoals: "Pinned Goals",
   search: "Search Bar",
   pinned: "Pinned Activities",
   recent: "Recently Used",

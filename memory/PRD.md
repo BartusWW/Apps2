@@ -54,6 +54,21 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
+## Implemented (2026-02-13 — Quick Tracking & Goal Pinning V1)
+- **TRACK button** on every active goal card (big, right-side, emerald) opens a type-aware quick sheet — never the structural Edit form. Cleanly separates "change the goal" (Edit) from "update progress" (Track).
+- `TrackGoalModal` adapts per progress type:
+  - **Checklist** — tick/untick items inline with live pct preview
+  - **Value / Max** — update current value, see new pct in real time
+  - **Manual %** — slider + numeric input
+  - **Hours Target** — read-only summary pointing the user to Home logging
+  - **Ongoing** — lifetime/month/week tiles + milestone toggles
+- Preview bar in the modal shows the new pct before saving so the user can see the impact.
+- **Goal Pinning**: each goal can be Pinned / Unpinned via the action row (or via the same TRACK route). Pinned active goals appear in a new `PinnedGoalsSection` on Home with inline progress bar + TRACK button.
+- New context methods: `togglePinGoal(id)` and `updateGoalProgress(id, patch)` (granular, never opens Edit).
+- Migration v7→v8 (non-destructive): adds `pinned:false` to every existing goal + injects `pinnedGoals` layout id between `nextDeadline` and `search`.
+- AppearanceEditor exposes the new section so users can hide/reorder Pinned Goals on Home.
+- **Verified live**: schema=8, ticked checklist items from Home → 4/4 → 100% persisted, manual goal updated to 75% via slider, pin toggle moves goal to/from Home instantly, all existing data preserved.
+
 ## Implemented (2026-02-13 — Goal Progress Types V1)
 - **Five completion-tracking models** added per goal: `manual` (0-100%), `value` (current/target with unit), `checklist` (drag-edit items, auto-pct from done/total), `hours` (target hours; fills from goal-linked logs), `ongoing` (lifetime/month/week + optional milestones).
 - `lib/goalProgress.js` computes a unified `progress` snapshot: `{ type, pct, primary, secondary, isCompletable, ongoing }`.

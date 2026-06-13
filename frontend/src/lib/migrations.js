@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "./storage";
 import { DEFAULT_CATEGORY_COLORS } from "./categoryColors";
 
 const SCHEMA_KEY = "cbe.schema.version";
-const TARGET_VERSION = 7;
+const TARGET_VERSION = 8;
 
 // Default categories (v2 — drives Quick Add UX, v3 adds color)
 export const DEFAULT_CATEGORIES = [
@@ -25,6 +25,7 @@ export const DEFAULT_HOME_LAYOUT = [
   { id: "carousel", visible: true },
   { id: "dailyPlan", visible: true },
   { id: "nextDeadline", visible: true },
+  { id: "pinnedGoals", visible: true },
   { id: "search", visible: true },
   { id: "pinned", visible: true },
   { id: "recent", visible: true },
@@ -287,6 +288,45 @@ function migrate_6_to_7() {
   setVersion(7);
 }
 
+// v7 → v8: adds the `pinned` flag (default false) on every existing goal +
+// injects `pinnedGoals` into existing users' homeLayout (right under
+// nextDeadline). Strictly additive — no wipe.
+function migrate_7_to_8() {
+  const raw = localStorage.getItem("cbe.goals.v1");
+  if (raw) {
+    try {
+      const goals = JSON.parse(raw);
+      if (Array.isArray(goals)) {
+        const next = goals.map((g) => ({ ...g, pinned: g.pinned === true }));
+        localStorage.setItem("cbe.goals.v1", JSON.stringify(next));
+      }
+    } catch {
+      /* ignore malformed goals; defaults will apply for new goals */
+    }
+  }
+
+  try {
+    const sRaw = localStorage.getItem("cbe.settings.v1");
+    if (sRaw) {
+      const settings = JSON.parse(sRaw);
+      if (Array.isArray(settings.homeLayout)) {
+        const has = settings.homeLayout.some((l) => l.id === "pinnedGoals");
+        if (!has) {
+          const idx = settings.homeLayout.findIndex((l) => l.id === "nextDeadline");
+          const item = { id: "pinnedGoals", visible: true };
+          if (idx >= 0) settings.homeLayout.splice(idx + 1, 0, item);
+          else settings.homeLayout.push(item);
+          localStorage.setItem("cbe.settings.v1", JSON.stringify(settings));
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  setVersion(8);
+}
+
 export function runMigrations() {
   const current = getVersion();
   if (current >= TARGET_VERSION) return { from: current, to: current };
@@ -314,6 +354,10 @@ export function runMigrations() {
   if (v < 7) {
     migrate_6_to_7();
     v = 7;
+  }
+  if (v < 8) {
+    migrate_7_to_8();
+    v = 8;
   }
   return { from: current, to: v };
 }

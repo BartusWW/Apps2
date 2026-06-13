@@ -17,6 +17,7 @@ import { paletteFor } from "../../lib/categoryColors";
 import GoalCard, { CompletedGoalCard } from "../GoalCard";
 import GoalForm from "../GoalForm";
 import CompleteGoalModal from "../CompleteGoalModal";
+import TrackGoalModal from "../TrackGoalModal";
 
 const DEADLINE_TEXT = {
   green: "text-emerald-400",
@@ -91,13 +92,14 @@ function AllocationBars({ snapshots }) {
 }
 
 export default function GoalsReviewView() {
-  const { entries, goals, addGoal, updateGoal, completeGoal, archiveGoal, deleteGoal, restoreGoal } = useApp();
+  const { entries, goals, addGoal, updateGoal, completeGoal, archiveGoal, deleteGoal, restoreGoal, togglePinGoal } = useApp();
   const snapshot = useMemo(() => computeGoalsSnapshot(goals, entries), [goals, entries]);
   const { active, completed, archived, totals } = snapshot;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
   const [completingGoal, setCompletingGoal] = useState(null);
+  const [trackingGoal, setTrackingGoal] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
 
   const openCreate = () => {
@@ -322,6 +324,13 @@ export default function GoalsReviewView() {
                 onArchive={handleArchive}
                 onComplete={(g) => setCompletingGoal(g)}
                 onDelete={handleDelete}
+                onTrack={(g) => setTrackingGoal(g)}
+                onPin={(g) => {
+                  togglePinGoal(g.id);
+                  toast(g.pinned ? `${g.name} unpinned` : `${g.name} pinned to Home`, {
+                    className: "!bg-neutral-900 !border-emerald-500/30 !text-white",
+                  });
+                }}
               />
             ))}
           </div>
@@ -428,6 +437,12 @@ export default function GoalsReviewView() {
         onConfirm={handleComplete}
         onClose={() => setCompletingGoal(null)}
         key={`complete-${completingGoal?.id || "none"}`}
+      />
+      <TrackGoalModal
+        open={!!trackingGoal}
+        goal={trackingGoal ? goals.find((g) => g.id === trackingGoal.id) : null}
+        onClose={() => setTrackingGoal(null)}
+        key={`track-${trackingGoal?.id || "none"}`}
       />
     </div>
   );

@@ -324,6 +324,8 @@ export function AppProvider({ children }) {
         },
         ...(goal.progress || {}),
       },
+      // Pinning
+      pinned: goal.pinned === true,
     };
     setGoals((prev) => [next, ...prev]);
     return next;
@@ -368,6 +370,26 @@ export function AppProvider({ children }) {
 
   const deleteGoal = useCallback((id) => {
     setGoals((prev) => prev.filter((g) => g.id !== id));
+  }, []);
+
+  const togglePinGoal = useCallback((id) => {
+    setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, pinned: !g.pinned } : g)));
+  }, []);
+
+  // Granular progress patch — does NOT open Edit. Use for Track modal.
+  // patch is shallow-merged into goal.progress; pass nested `ongoing` or
+  // `checklist` arrays whole.
+  const updateGoalProgress = useCallback((id, patch) => {
+    setGoals((prev) =>
+      prev.map((g) => {
+        if (g.id !== id) return g;
+        const merged = { ...(g.progress || {}), ...patch };
+        if (patch.ongoing) {
+          merged.ongoing = { ...(g.progress?.ongoing || {}), ...patch.ongoing };
+        }
+        return { ...g, progress: merged };
+      }),
+    );
   }, []);
 
   // ----- Log Modal global state -----
@@ -452,6 +474,8 @@ export function AppProvider({ children }) {
       archiveGoal,
       restoreGoal,
       deleteGoal,
+      togglePinGoal,
+      updateGoalProgress,
       togglePinCategory,
       reorderPinned,
       toggleCategoryCollapsed,
@@ -471,7 +495,7 @@ export function AppProvider({ children }) {
       undoLastEntry, undoDelete, addAction, updateAction, deleteAction,
       addHabit, updateHabit, deleteHabit,
       addBrainDump, updateBrainDump, deleteBrainDump,
-      addGoal, updateGoal, completeGoal, archiveGoal, restoreGoal, deleteGoal,
+      addGoal, updateGoal, completeGoal, archiveGoal, restoreGoal, deleteGoal, togglePinGoal, updateGoalProgress,
       togglePinCategory, reorderPinned, toggleCategoryCollapsed, moveCategoryOrder, setCategoryOrder,
       logModal, openLogModal, closeLogModal,
       setLayoutVisible, moveLayoutItem,
