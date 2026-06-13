@@ -21,16 +21,24 @@ function highlight(text, query) {
 }
 
 export default function HomeSearch() {
-  const { settings, habits, brainDumps, logActivity, deleteEntry } = useApp();
+  const {
+    settings,
+    actions,
+    habits,
+    brainDumps,
+    logActivity,
+    deleteEntry,
+    openLogModal,
+  } = useApp();
   const [q, setQ] = useState("");
 
   const results = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return null;
-    const out = { categories: [], habits: [], brainDumps: [] };
-    for (const c of settings.categories || []) {
-      const hay = `${c.name} ${c.description || ""}`.toLowerCase();
-      if (hay.includes(query)) out.categories.push(c);
+    const out = { actions: [], habits: [], brainDumps: [] };
+    for (const a of actions || []) {
+      const hay = `${a.name} ${a.category || ""}`.toLowerCase();
+      if (hay.includes(query)) out.actions.push(a);
     }
     for (const h of habits || []) {
       const hay = `${h.name} ${(h.categories || []).join(" ")}`.toLowerCase();
@@ -41,16 +49,27 @@ export default function HomeSearch() {
       if (hay.includes(query)) out.brainDumps.push(b);
     }
     return out;
-  }, [q, settings.categories, habits, brainDumps]);
+  }, [q, actions, habits, brainDumps]);
 
-  const quickLog = (cat, minutes = 30) => {
+  // Quick-log an action. Instant action → log immediately. Timed action →
+  // open the LogModal so the user can pick the actual duration.
+  const quickLog = (action) => {
+    const cat = (settings.categories || []).find((c) => c.name === action.category);
+    const isInstant = !Number(action.minutes) || action.minutes <= 0;
+    if (!isInstant) {
+      openLogModal({ actionId: action.id });
+      return;
+    }
     const entry = logActivity({
-      category: cat.name,
-      type: cat.type,
-      minutes,
-      icon: cat.icon,
+      actionId: action.id,
+      actionName: action.name,
+      category: action.category,
+      type: cat?.type || action.type,
+      minutes: 0,
+      icon: action.icon,
+      points: typeof action.points === "number" ? action.points : 0,
     });
-    toast(`${minutes}m ${cat.name} logged`, {
+    toast(`${action.name} logged`, {
       description: `${entry.points > 0 ? "+" : ""}${entry.points} pts`,
       action: { label: "Undo", onClick: () => deleteEntry(entry.id) },
       className: "!bg-neutral-900 !border-emerald-500/30 !text-white",
@@ -68,7 +87,7 @@ export default function HomeSearch() {
           type="text"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search activities, habits, notes…"
+          placeholder="Search actions, habits, notes…"
           data-testid="home-search-input"
           className="w-full bg-neutral-900 border border-white/10 rounded-full pl-9 pr-9 py-2.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500/40"
         />
@@ -89,39 +108,53 @@ export default function HomeSearch() {
           className="bg-neutral-900 border border-white/10 rounded-xl p-3 space-y-3"
           data-testid="search-results"
         >
-          {results.categories.length === 0 &&
+          {results.actions.length === 0 &&
             results.habits.length === 0 &&
             results.brainDumps.length === 0 && (
               <p className="text-xs text-neutral-500 px-1 py-2">No matches.</p>
             )}
 
-          {results.categories.length > 0 && (
+          {results.actions.length > 0 && (
             <div>
               <p className="text-[10px] uppercase tracking-widest text-neutral-500 mb-1.5">
-                Categories
+                Actions
               </p>
               <ul className="space-y-1">
-                {results.categories.map((c) => {
-                  const Icon = Icons[c.icon] || Icons.Zap;
-                  const p = paletteFor(c.color || (c.type === "negative" ? "red" : "emerald"));
+                {results.actions.map((a) => {
+                  const cat = (settings.categories || []).find(
+                    (c) => c.name === a.category,
+                  );
+                  const Icon = Icons[a.icon || cat?.icon || "Zap"] || Icons.Zap;
+                  const colorId =
+                    cat?.color || (a.type === "negative" ? "red" : "emerald");
+                  const p = paletteFor(colorId);
+                  const isInstant = !Number(a.minutes) || a.minutes <= 0;
                   return (
                     <li
-                      key={c.name}
+                      key={a.id}
                       className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-white/5"
-                      data-testid={`search-result-cat-${c.name}`}
+                      data-testid={`search-result-action-${a.id}`}
                     >
-                      <span className={`h-7 w-7 rounded-md flex items-center justify-center ${p.softBg} ${p.text}`}>
+                      <span
+                        className={`h-7 w-7 rounded-md flex items-center justify-center ${p.softBg} ${p.text}`}
+                      >
                         <Icon size={13} strokeWidth={2.5} />
                       </span>
-                      <span className="text-sm text-white flex-1 truncate">
-                        {highlight(c.name, q)}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate">
+                          {highlight(a.name, q)}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-widest text-neutral-500 truncate">
+                          {a.category || "Uncategorized"}
+                        </p>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => quickLog(c, 30)}
+                        onClick={() => quickLog(a)}
+                        data-testid={`search-log-action-${a.id}`}
                         className={`text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1 rounded-md ${p.solidBtn}`}
                       >
-                        +30m
+                        {isInstant ? "Log" : "Log…"}
                       </button>
                     </li>
                   );

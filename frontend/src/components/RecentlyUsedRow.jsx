@@ -5,37 +5,49 @@ import { useApp } from "../context/AppContext";
 import { paletteFor } from "../lib/categoryColors";
 
 /**
- * Chip-style row of recently used categories — last 5 unique.
- * Tapping a chip logs 30 minutes of that category.
+ * Chip-style row of recently used Actions — last 5 unique actions logged.
+ * Tap an instant action → logs immediately. Tap a timed action → opens
+ * LogModal so the user can pick the actual duration.
  */
 export default function RecentlyUsedRow() {
-  const { entries, settings, logActivity, deleteEntry } = useApp();
+  const { entries, actions, settings, logActivity, deleteEntry, openLogModal } =
+    useApp();
 
   const recent = useMemo(() => {
-    const cats = settings.categories || [];
-    const byName = Object.fromEntries(cats.map((c) => [c.name, c]));
+    const byId = Object.fromEntries((actions || []).map((a) => [a.id, a]));
     const seen = new Set();
     const out = [];
     for (const e of entries) {
-      if (seen.has(e.category)) continue;
-      if (!byName[e.category]) continue;
-      seen.add(e.category);
-      out.push(byName[e.category]);
+      if (!e.actionId) continue;
+      if (seen.has(e.actionId)) continue;
+      const a = byId[e.actionId];
+      if (!a) continue;
+      seen.add(e.actionId);
+      out.push(a);
       if (out.length >= 5) break;
     }
     return out;
-  }, [entries, settings.categories]);
+  }, [entries, actions]);
 
   if (recent.length === 0) return null;
 
-  const quickLog = (cat) => {
+  const quickLog = (action) => {
+    const cat = (settings.categories || []).find((c) => c.name === action.category);
+    const isInstant = !Number(action.minutes) || action.minutes <= 0;
+    if (!isInstant) {
+      openLogModal({ actionId: action.id });
+      return;
+    }
     const entry = logActivity({
-      category: cat.name,
-      type: cat.type,
-      minutes: 30,
-      icon: cat.icon,
+      actionId: action.id,
+      actionName: action.name,
+      category: action.category,
+      type: cat?.type || action.type,
+      minutes: 0,
+      icon: action.icon,
+      points: typeof action.points === "number" ? action.points : 0,
     });
-    toast(`30m ${cat.name} logged`, {
+    toast(`${action.name} logged`, {
       description: `${entry.points > 0 ? "+" : ""}${entry.points} pts`,
       action: { label: "Undo", onClick: () => deleteEntry(entry.id) },
       className: "!bg-neutral-900 !border-emerald-500/30 !text-white",
@@ -49,23 +61,25 @@ export default function RecentlyUsedRow() {
           Recently Used
         </p>
         <span className="text-[10px] uppercase tracking-widest text-neutral-600">
-          Tap = +30m
+          Tap = log
         </span>
       </div>
       <div className="flex flex-wrap gap-2">
-        {recent.map((c) => {
-          const Icon = Icons[c.icon] || Icons.Zap;
-          const p = paletteFor(c.color || (c.type === "negative" ? "red" : "emerald"));
+        {recent.map((a) => {
+          const cat = (settings.categories || []).find((c) => c.name === a.category);
+          const Icon = Icons[a.icon || cat?.icon || "Zap"] || Icons.Zap;
+          const colorId = cat?.color || (a.type === "negative" ? "red" : "emerald");
+          const p = paletteFor(colorId);
           return (
             <button
-              key={c.name}
+              key={a.id}
               type="button"
-              onClick={() => quickLog(c)}
-              data-testid={`recent-chip-${c.name}`}
+              onClick={() => quickLog(a)}
+              data-testid={`recent-chip-${a.id}`}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${p.border} ${p.borderHover} text-xs font-semibold transition-colors`}
             >
               <Icon size={11} strokeWidth={2.5} className={p.text} />
-              <span className="text-white">{c.name}</span>
+              <span className="text-white truncate max-w-[14ch]">{a.name}</span>
             </button>
           );
         })}

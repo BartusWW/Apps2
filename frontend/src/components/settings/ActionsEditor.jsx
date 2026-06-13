@@ -33,13 +33,19 @@ function ActionForm({ initial, categories, onSave, onCancel, submitLabel, testId
       toast("Pick a category", { className: "!bg-neutral-900 !border-red-500/30 !text-white" });
       return;
     }
+    const pts = Number(form.points) || 0;
+    const signed =
+      form.type === "negative"
+        ? -Math.abs(pts)
+        : form.type === "positive"
+          ? Math.abs(pts)
+          : pts;
     onSave({
       ...form,
       name: form.name.trim(),
       minutes: Math.max(0, Number(form.minutes) || 0),
-      points: Number(form.points) || 0,
-      // Mirror the category's type so logs always agree with their parent.
-      type: cat?.type || form.type,
+      points: signed,
+      type: form.type,
     });
   };
 
@@ -79,19 +85,32 @@ function ActionForm({ initial, categories, onSave, onCancel, submitLabel, testId
           </select>
         </div>
         <div>
-          <label className="text-[10px] uppercase tracking-widest text-neutral-500">Icon</label>
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            data-testid={`${testIdPrefix}-action-icon-btn`}
-            className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white flex items-center gap-2 hover:border-emerald-500/40"
+          <label className="text-[10px] uppercase tracking-widest text-neutral-500">Type</label>
+          <select
+            value={form.type}
+            onChange={(e) => setForm({ ...form, type: e.target.value })}
+            data-testid={`${testIdPrefix}-action-type`}
+            className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
           >
-            <span className={`h-6 w-6 rounded-md flex items-center justify-center ${p.softBg} ${p.text}`}>
-              <Icon size={13} strokeWidth={2.5} />
-            </span>
-            <span className="flex-1 text-left truncate">{form.icon}</span>
-          </button>
+            <option value="positive">Positive</option>
+            <option value="negative">Negative</option>
+          </select>
         </div>
+      </div>
+
+      <div>
+        <label className="text-[10px] uppercase tracking-widest text-neutral-500">Icon</label>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          data-testid={`${testIdPrefix}-action-icon-btn`}
+          className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white flex items-center gap-2 hover:border-emerald-500/40"
+        >
+          <span className={`h-6 w-6 rounded-md flex items-center justify-center ${p.softBg} ${p.text}`}>
+            <Icon size={13} strokeWidth={2.5} />
+          </span>
+          <span className="flex-1 text-left truncate">{form.icon}</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -181,14 +200,76 @@ export default function ActionsEditor() {
     toast(`${a.name} removed`, { className: "!bg-neutral-900 !border-red-500/30 !text-white" });
   };
 
-  // Group actions by category for readability.
-  const grouped = categories.map((c) => ({
-    category: c,
-    items: (actions || []).filter((a) => a.category === c.name),
-  }));
-  const orphans = (actions || []).filter(
-    (a) => !categories.some((c) => c.name === a.category),
-  );
+  // Resolve effective type for an action — action.type is the source of
+  // truth (decides whether points are added or removed). Category is only
+  // metadata for stats/review.
+  const effectiveType = (a) => a.type || "positive";
+
+  const positive = (actions || []).filter((a) => effectiveType(a) === "positive");
+  const negative = (actions || []).filter((a) => effectiveType(a) === "negative");
+
+  const renderRow = (a) => {
+    if (editing === a.id) {
+      return (
+        <li key={a.id}>
+          <ActionForm
+            initial={a}
+            submitLabel="Save"
+            testIdPrefix={`edit-${a.id}`}
+            categories={categories}
+            onCancel={() => setEditing(null)}
+            onSave={(p) => handleUpdate(a.id, p)}
+          />
+        </li>
+      );
+    }
+    const cat = categories.find((c) => c.name === a.category);
+    const Icon = Icons[a.icon] || Zap;
+    const isInstant = !Number(a.minutes) || a.minutes <= 0;
+    const isOrphan = !cat;
+    const p = paletteFor(cat?.color || (effectiveType(a) === "negative" ? "red" : "emerald"));
+    return (
+      <li
+        key={a.id}
+        className={`bg-neutral-900 border rounded-lg px-3.5 py-3 flex items-center gap-2.5 ${
+          isOrphan ? "border-amber-500/30" : "border-white/10"
+        }`}
+        data-testid={`action-row-${a.id}`}
+      >
+        <span className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${p.softBg} ${p.text}`}>
+          <Icon size={14} strokeWidth={2.5} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white truncate">{a.name}</p>
+          <p className={`text-[10px] uppercase tracking-widest truncate ${isOrphan ? "text-amber-400" : "text-neutral-500"}`}>
+            {isOrphan ? `Orphan · was ${a.category}` : a.category}
+            {" · "}
+            {isInstant
+              ? `${a.points > 0 ? "+" : ""}${a.points} pts`
+              : `${a.minutes}m default`}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setEditing(a.id)}
+          data-testid={`edit-action-${a.id}`}
+          className="p-2 rounded-md text-neutral-400 hover:text-emerald-400 hover:bg-white/5"
+          aria-label="Edit"
+        >
+          <Pencil size={13} />
+        </button>
+        <button
+          type="button"
+          onClick={() => handleDelete(a)}
+          data-testid={`delete-action-${a.id}`}
+          className="p-2 rounded-md text-neutral-500 hover:text-red-500 hover:bg-white/5"
+          aria-label="Delete"
+        >
+          <Trash2 size={13} />
+        </button>
+      </li>
+    );
+  };
 
   return (
     <section data-testid="actions-editor" className="space-y-3">
@@ -217,115 +298,30 @@ export default function ActionsEditor() {
         />
       )}
 
-      <div className="space-y-3">
-        {grouped.map(({ category, items }) => (
-          <div key={category.name} className="space-y-1.5">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500 font-semibold">
-              {category.name}
-            </p>
-            {items.length === 0 ? (
-              <p className="text-xs text-neutral-600 italic">No actions yet.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {items.map((a) => {
-                  if (editing === a.id) {
-                    return (
-                      <li key={a.id}>
-                        <ActionForm
-                          initial={a}
-                          submitLabel="Save"
-                          testIdPrefix={`edit-${a.id}`}
-                          categories={categories}
-                          onCancel={() => setEditing(null)}
-                          onSave={(p) => handleUpdate(a.id, p)}
-                        />
-                      </li>
-                    );
-                  }
-                  const Icon = Icons[a.icon] || Zap;
-                  const isInstant = !Number(a.minutes) || a.minutes <= 0;
-                  const p = paletteFor(category.color || (category.type === "negative" ? "red" : "emerald"));
-                  return (
-                    <li
-                      key={a.id}
-                      className="bg-neutral-900 border border-white/10 rounded-lg px-3.5 py-3 flex items-center gap-2.5"
-                      data-testid={`action-row-${a.id}`}
-                    >
-                      <span className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${p.softBg} ${p.text}`}>
-                        <Icon size={14} strokeWidth={2.5} />
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{a.name}</p>
-                        <p className="text-[10px] uppercase tracking-widest text-neutral-500 truncate">
-                          {isInstant
-                            ? `Instant · ${a.points > 0 ? "+" : ""}${a.points} pts`
-                            : `Timed · default ${a.minutes}m`}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setEditing(a.id)}
-                        data-testid={`edit-action-${a.id}`}
-                        className="p-2 rounded-md text-neutral-400 hover:text-emerald-400 hover:bg-white/5"
-                        aria-label="Edit"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(a)}
-                        data-testid={`delete-action-${a.id}`}
-                        className="p-2 rounded-md text-neutral-500 hover:text-red-500 hover:bg-white/5"
-                        aria-label="Delete"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        ))}
-        {orphans.length > 0 && (
-          <div className="space-y-1.5">
-            <p className="text-[10px] uppercase tracking-widest text-amber-400 font-semibold">
-              Orphan actions (category missing)
-            </p>
-            <ul className="space-y-1.5">
-              {orphans.map((a) => (
-                <li
-                  key={a.id}
-                  className="bg-neutral-900 border border-amber-500/20 rounded-lg px-3.5 py-3 flex items-center gap-2.5"
-                  data-testid={`action-row-${a.id}`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{a.name}</p>
-                    <p className="text-[10px] uppercase tracking-widest text-amber-400 truncate">
-                      Was: {a.category}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditing(a.id)}
-                    className="p-2 rounded-md text-neutral-400 hover:text-emerald-400 hover:bg-white/5"
-                    aria-label="Edit"
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(a)}
-                    className="p-2 rounded-md text-neutral-500 hover:text-red-500 hover:bg-white/5"
-                    aria-label="Delete"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+      <div>
+        <h3 className="text-[10px] uppercase tracking-[0.18em] text-emerald-400 font-semibold mb-2">
+          Positive · Build
+        </h3>
+        <ul className="space-y-1.5" data-testid="positive-actions-list">
+          {positive.length === 0 ? (
+            <p className="text-sm text-neutral-500">No positive actions.</p>
+          ) : (
+            positive.map(renderRow)
+          )}
+        </ul>
+      </div>
+
+      <div>
+        <h3 className="text-[10px] uppercase tracking-[0.18em] text-red-500 font-semibold mb-2">
+          Negative · Eliminate
+        </h3>
+        <ul className="space-y-1.5" data-testid="negative-actions-list">
+          {negative.length === 0 ? (
+            <p className="text-sm text-neutral-500">No negative actions.</p>
+          ) : (
+            negative.map(renderRow)
+          )}
+        </ul>
       </div>
     </section>
   );
