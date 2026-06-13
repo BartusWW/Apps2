@@ -8,6 +8,7 @@ import DataManagement from "../components/settings/DataManagement";
 import AppearanceEditor from "../components/settings/AppearanceEditor";
 import CategoriesEditor from "../components/settings/CategoriesEditor";
 import BrainDumpManager from "../components/settings/BrainDumpManager";
+import GoalsEditor from "../components/settings/GoalsEditor";
 
 const DEFAULT_CATEGORIES = [
   "PT Study",
@@ -415,6 +416,9 @@ export default function Settings() {
 
       {/* Habits */}
       <HabitsEditor />
+
+      {/* Goals — strategic layer above categories */}
+      <GoalsEditor />
 
       {/* Categories */}
       <CategoriesEditor />

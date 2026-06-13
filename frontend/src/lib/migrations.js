@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "./storage";
 import { DEFAULT_CATEGORY_COLORS } from "./categoryColors";
 
 const SCHEMA_KEY = "cbe.schema.version";
-const TARGET_VERSION = 4;
+const TARGET_VERSION = 5;
 
 // Default categories (v2 — drives Quick Add UX, v3 adds color)
 export const DEFAULT_CATEGORIES = [
@@ -171,6 +171,15 @@ function migrate_3_to_4() {
   setVersion(4);
 }
 
+// v4 → v5: seeds the goals bucket. Strategic layer above categories/habits.
+// Idempotent: only creates the key when missing; never mutates existing goals.
+function migrate_4_to_5() {
+  if (localStorage.getItem("cbe.goals.v1") === null) {
+    localStorage.setItem("cbe.goals.v1", JSON.stringify([]));
+  }
+  setVersion(5);
+}
+
 export function runMigrations() {
   const current = getVersion();
   if (current >= TARGET_VERSION) return { from: current, to: current };
@@ -186,6 +195,10 @@ export function runMigrations() {
   if (v < 4) {
     migrate_3_to_4();
     v = 4;
+  }
+  if (v < 5) {
+    migrate_4_to_5();
+    v = 5;
   }
   return { from: current, to: v };
 }

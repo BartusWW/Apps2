@@ -12,10 +12,13 @@ import {
   saveDailyPlans,
   loadBrainDumps,
   saveBrainDumps,
+  loadGoals,
+  saveGoals,
   generateId,
 } from "../lib/storage";
 import { todayISO, nowTimeHHMM } from "../lib/dateUtils";
 import { computePoints } from "../lib/scoring";
+import { buildCompletionSnapshot } from "../lib/goals";
 
 const AppContext = createContext(null);
 
@@ -26,6 +29,7 @@ export function AppProvider({ children }) {
   const [notes, setNotes] = useState(() => loadNotes());
   const [dailyPlans, setDailyPlans] = useState(() => loadDailyPlans());
   const [brainDumps, setBrainDumps] = useState(() => loadBrainDumps());
+  const [goals, setGoals] = useState(() => loadGoals());
   const [lastDeleted, setLastDeleted] = useState(null);
 
   useEffect(() => saveEntries(entries), [entries]);
@@ -34,6 +38,7 @@ export function AppProvider({ children }) {
   useEffect(() => saveNotes(notes), [notes]);
   useEffect(() => saveDailyPlans(dailyPlans), [dailyPlans]);
   useEffect(() => saveBrainDumps(brainDumps), [brainDumps]);
+  useEffect(() => saveGoals(goals), [goals]);
 
   // ----- Settings -----
   const updateSettings = useCallback((patch) => {
@@ -201,6 +206,7 @@ export function AppProvider({ children }) {
     setNotes(loadNotes());
     setDailyPlans(loadDailyPlans());
     setBrainDumps(loadBrainDumps());
+    setGoals(loadGoals());
   }, []);
 
   // ----- Brain Dump -----
@@ -278,6 +284,69 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  // ----- Goals -----
+  const addGoal = useCallback((goal) => {
+    const next = {
+      id: goal.id || generateId(),
+      name: (goal.name || "").trim() || "Untitled Goal",
+      icon: goal.icon || "Target",
+      color: goal.color || "emerald",
+      description: (goal.description || "").trim(),
+      targetAllocation: Math.max(0, Math.min(100, Number(goal.targetAllocation) || 0)),
+      priorityWeight: Math.max(1, Math.min(10, Number(goal.priorityWeight) || 5)),
+      status: goal.status || "active",
+      linkedActivities: Array.isArray(goal.linkedActivities) ? goal.linkedActivities : [],
+      linkedHabits: Array.isArray(goal.linkedHabits) ? goal.linkedHabits : [],
+      notes: (goal.notes || "").trim(),
+      createdAt: goal.createdAt || new Date().toISOString(),
+      completedAt: null,
+      finalNotes: null,
+    };
+    setGoals((prev) => [next, ...prev]);
+    return next;
+  }, []);
+
+  const updateGoal = useCallback((id, patch) => {
+    setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+  }, []);
+
+  const completeGoal = useCallback(
+    (id, { completedAt, finalNotes } = {}) => {
+      setGoals((prev) =>
+        prev.map((g) => {
+          if (g.id !== id) return g;
+          const snapshot = buildCompletionSnapshot(g, entries);
+          return {
+            ...g,
+            ...snapshot,
+            status: "completed",
+            completedAt: completedAt || new Date().toISOString(),
+            finalNotes: finalNotes ? String(finalNotes).trim() : null,
+          };
+        }),
+      );
+    },
+    [entries],
+  );
+
+  const archiveGoal = useCallback((id) => {
+    setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, status: "archived" } : g)));
+  }, []);
+
+  const restoreGoal = useCallback((id) => {
+    setGoals((prev) =>
+      prev.map((g) =>
+        g.id === id
+          ? { ...g, status: "active", completedAt: null, finalNotes: null }
+          : g,
+      ),
+    );
+  }, []);
+
+  const deleteGoal = useCallback((id) => {
+    setGoals((prev) => prev.filter((g) => g.id !== id));
+  }, []);
+
   // ----- Log Modal global state -----
   const [logModal, setLogModal] = useState({ open: false, categoryName: null });
   const openLogModal = useCallback((categoryName) => {
@@ -332,6 +401,7 @@ export function AppProvider({ children }) {
       dailyPlans,
       brainDumps,
       habits,
+      goals,
       updateSettings,
       updateWeeklyNote,
       updateMonthlyNote,
@@ -353,6 +423,12 @@ export function AppProvider({ children }) {
       addBrainDump,
       updateBrainDump,
       deleteBrainDump,
+      addGoal,
+      updateGoal,
+      completeGoal,
+      archiveGoal,
+      restoreGoal,
+      deleteGoal,
       togglePinCategory,
       reorderPinned,
       toggleCategoryCollapsed,
@@ -366,12 +442,13 @@ export function AppProvider({ children }) {
       reloadFromStorage,
     }),
     [
-      entries, actions, settings, notes, dailyPlans, brainDumps, habits,
+      entries, actions, settings, notes, dailyPlans, brainDumps, habits, goals,
       updateSettings, updateWeeklyNote, updateMonthlyNote, updateDailyPlan,
       logAction, logActivity, addEntryAt, updateEntry, deleteEntry, restoreEntry,
       undoLastEntry, undoDelete, addAction, updateAction, deleteAction,
       addHabit, updateHabit, deleteHabit,
       addBrainDump, updateBrainDump, deleteBrainDump,
+      addGoal, updateGoal, completeGoal, archiveGoal, restoreGoal, deleteGoal,
       togglePinCategory, reorderPinned, toggleCategoryCollapsed, moveCategoryOrder, setCategoryOrder,
       logModal, openLogModal, closeLogModal,
       setLayoutVisible, moveLayoutItem,

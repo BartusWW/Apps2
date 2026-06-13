@@ -54,6 +54,22 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
+## Implemented (2026-02-13 — Goals System V1)
+- **Goals as a strategic layer** above categories/habits — answers "Did my time go where I intended?"
+- New schema key `cbe.goals.v1` + v4→v5 migration (idempotent, non-destructive).
+- Goal shape: `{ id, name, icon, color, description, targetAllocation (0-100%), priorityWeight (1-10), status: active|completed|archived, linkedActivities (category names), linkedHabits (habit ids), notes, createdAt, completedAt, finalNotes, hoursAtCompletion, pointsAtCompletion, allocationAtCompletion }`.
+- **Review → Goals** (third pill, violet accent) shows:
+  - Section 1 — Investment Overview (Active / Completed / Goal Hours / Goal Points / Avg Completion)
+  - Section 2 — Goal Allocation horizontal bars (% within goal-linked dev time, summing to 100%)
+  - Section 3 + 4 — Alignment + expandable Breakdown per goal card. Twin progress bar overlays target (ghost) vs actual (colored). Status: **Ahead** (>+5%), **On Track** (±5%), **Behind** (<-5%)
+  - Section 5 — Timeline (Created · Last Activity · Priority) inside each expanded card
+  - Section 6 — Completed Goals history with preserved snapshot (hours/points/duration)
+  - Archived section (collapsible) with one-tap Restore + Delete
+- **Settings → Goals** has a tab-filtered CRUD list (Active / Completed / Archived) for quick management.
+- **Complete Goal modal** captures completion date + final notes and snapshots hours/points/allocation so history is stable even if entries are later edited.
+- `lib/goals.js` contains pure computations: `computeGoalStats`, `computeGoalBreakdown`, `alignmentStatus`, `computeGoalsSnapshot`, `buildCompletionSnapshot`, plus `formatHours` and `formatDuration` helpers.
+- **Bug fixed during build**: GoalForm useState persisted across modal close/reopen, leaking `linkedActivities` from one creation into the next. Fixed via `key` prop tied to open state → form remounts fresh every open.
+
 ## Implemented (2026-02-13 — Drag-and-Drop Category Reorder)
 - Replaced the arrows-only sort with `@dnd-kit/sortable` powered drag-and-drop in `CategoriesEditor`. Each row now has a `GripVertical` handle that activates after 6px pointer movement or a 180ms touch hold (prevents accidental drags when tapping the row body).
 - Sensors: `PointerSensor` (mouse/pen), `TouchSensor` (mobile-first), `KeyboardSensor` for accessibility. Up/Down arrow buttons are kept as an a11y fallback.

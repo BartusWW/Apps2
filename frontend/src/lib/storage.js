@@ -5,6 +5,7 @@ const SETTINGS_KEY = "cbe.settings.v1";
 const NOTES_KEY = "cbe.notes.v1";
 const DAILY_PLANS_KEY = "cbe.daily-plans.v1";
 const BRAIN_DUMP_KEY = "cbe.brain-dump.v1";
+const GOALS_KEY = "cbe.goals.v1";
 
 export const DEFAULT_SETTINGS = {
   weeklyGoalMinutes: 20 * 60, // 20 hours
@@ -208,6 +209,22 @@ export function saveBrainDumps(items) {
   localStorage.setItem(BRAIN_DUMP_KEY, JSON.stringify(items));
 }
 
+// ---------- Goals ----------
+export function loadGoals() {
+  try {
+    const raw = localStorage.getItem(GOALS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveGoals(goals) {
+  localStorage.setItem(GOALS_KEY, JSON.stringify(goals));
+}
+
 // ---------- Backup / Restore / Reset ----------
 const BACKUP_KEYS = [
   ENTRIES_KEY,
@@ -216,6 +233,7 @@ const BACKUP_KEYS = [
   NOTES_KEY,
   DAILY_PLANS_KEY,
   BRAIN_DUMP_KEY,
+  GOALS_KEY,
   "cbe.schema.version",
 ];
 
