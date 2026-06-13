@@ -129,15 +129,14 @@ function ActionForm({ initial, categories, onSave, onCancel, submitLabel, testId
         </div>
         <div>
           <label className="text-[10px] uppercase tracking-widest text-neutral-500">
-            {isInstant ? "Fixed Points" : "Points (auto by duration)"}
+            {isInstant ? "Points per log" : "Points per 30 min"}
           </label>
           <input
             type="number"
             value={form.points}
             onChange={(e) => setForm({ ...form, points: e.target.value })}
-            disabled={!isInstant}
             data-testid={`${testIdPrefix}-action-points`}
-            className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+            className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
           />
         </div>
       </div>
@@ -145,7 +144,7 @@ function ActionForm({ initial, categories, onSave, onCancel, submitLabel, testId
       <p className="text-[10px] uppercase tracking-widest text-neutral-500">
         {isInstant
           ? "Instant action — logs immediately with fixed points."
-          : "Timed action — asks for duration on log; points = duration × rate."}
+          : "Timed action — asks for duration on log; points = (minutes / 30) × rate."}
       </p>
 
       <div className="flex items-center justify-end gap-2">

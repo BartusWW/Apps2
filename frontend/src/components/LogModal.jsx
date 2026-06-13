@@ -41,6 +41,16 @@ export default function LogModal() {
   const p = paletteFor(colorId);
   const titleText = action ? action.name : `Log ${cat.name}`;
 
+  // Rate per 30 minutes. Action.points stores the per-30-min rate for timed
+  // actions (set by the user in Settings). Falls back to the default category
+  // rate when no action is linked (back-compat path).
+  const rate30 =
+    action && typeof action.points === "number"
+      ? action.points
+      : computePoints(30, cat.type);
+  const pointsFor = (mins) =>
+    Math.round(((Number(mins) || 0) / 30) * rate30 * 10) / 10;
+
   const submit = (minutes) => {
     const mins = Number(minutes);
     if (!mins || mins <= 0) {
@@ -56,6 +66,7 @@ export default function LogModal() {
       type: cat.type,
       minutes: mins,
       icon: (action && action.icon) || cat.icon,
+      points: pointsFor(mins),
     });
     toast(`${mins}m ${cat.name} logged`, {
       description: `${entry.points > 0 ? "+" : ""}${entry.points} pts`,
@@ -81,7 +92,11 @@ export default function LogModal() {
               {titleText}
             </p>
             <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
-              {cat.type === "positive" ? "+20 pts / hr" : "−30 pts / hr"}
+              {action
+                ? `${rate30 > 0 ? "+" : ""}${rate30} pts / 30m`
+                : cat.type === "positive"
+                  ? "+20 pts / hr"
+                  : "−30 pts / hr"}
               {cat.description ? ` · ${cat.description}` : ""}
             </p>
           </div>
@@ -102,7 +117,7 @@ export default function LogModal() {
           </p>
           <div className="grid grid-cols-4 gap-2">
             {PRESETS.map((m) => {
-              const pts = computePoints(m, cat.type);
+              const pts = pointsFor(m);
               return (
                 <button
                   key={m}
