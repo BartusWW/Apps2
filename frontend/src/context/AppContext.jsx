@@ -10,6 +10,8 @@ import {
   saveNotes,
   loadDailyPlans,
   saveDailyPlans,
+  loadBrainDumps,
+  saveBrainDumps,
   generateId,
 } from "../lib/storage";
 import { todayISO, nowTimeHHMM } from "../lib/dateUtils";
@@ -23,6 +25,7 @@ export function AppProvider({ children }) {
   const [settings, setSettings] = useState(() => loadSettings());
   const [notes, setNotes] = useState(() => loadNotes());
   const [dailyPlans, setDailyPlans] = useState(() => loadDailyPlans());
+  const [brainDumps, setBrainDumps] = useState(() => loadBrainDumps());
   const [lastDeleted, setLastDeleted] = useState(null);
 
   useEffect(() => saveEntries(entries), [entries]);
@@ -30,6 +33,7 @@ export function AppProvider({ children }) {
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => saveNotes(notes), [notes]);
   useEffect(() => saveDailyPlans(dailyPlans), [dailyPlans]);
+  useEffect(() => saveBrainDumps(brainDumps), [brainDumps]);
 
   // ----- Settings -----
   const updateSettings = useCallback((patch) => {
@@ -196,6 +200,76 @@ export function AppProvider({ children }) {
     setSettings(loadSettings());
     setNotes(loadNotes());
     setDailyPlans(loadDailyPlans());
+    setBrainDumps(loadBrainDumps());
+  }, []);
+
+  // ----- Brain Dump -----
+  const addBrainDump = useCallback(({ text, category = "General" }) => {
+    if (!text || !text.trim()) return null;
+    const item = {
+      id: generateId(),
+      ts: new Date().toISOString(),
+      date: todayISO(),
+      category,
+      text: text.trim(),
+    };
+    setBrainDumps((prev) => [item, ...prev]);
+    return item;
+  }, []);
+
+  const updateBrainDump = useCallback((id, patch) => {
+    setBrainDumps((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+  }, []);
+
+  const deleteBrainDump = useCallback((id) => {
+    setBrainDumps((prev) => prev.filter((b) => b.id !== id));
+  }, []);
+
+  // ----- Pinned categories -----
+  const togglePinCategory = useCallback((name) => {
+    setSettings((prev) => {
+      const pinned = prev.pinnedCategories || [];
+      const next = pinned.includes(name)
+        ? pinned.filter((n) => n !== name)
+        : [...pinned, name];
+      return { ...prev, pinnedCategories: next };
+    });
+  }, []);
+
+  const reorderPinned = useCallback((fromIndex, toIndex) => {
+    setSettings((prev) => {
+      const arr = [...(prev.pinnedCategories || [])];
+      if (
+        fromIndex < 0 ||
+        fromIndex >= arr.length ||
+        toIndex < 0 ||
+        toIndex >= arr.length
+      ) return prev;
+      const [moved] = arr.splice(fromIndex, 1);
+      arr.splice(toIndex, 0, moved);
+      return { ...prev, pinnedCategories: arr };
+    });
+  }, []);
+
+  // ----- Home layout -----
+  const setLayoutVisible = useCallback((id, visible) => {
+    setSettings((prev) => ({
+      ...prev,
+      homeLayout: (prev.homeLayout || []).map((l) =>
+        l.id === id ? { ...l, visible } : l,
+      ),
+    }));
+  }, []);
+
+  const moveLayoutItem = useCallback((id, delta) => {
+    setSettings((prev) => {
+      const arr = [...(prev.homeLayout || [])];
+      const idx = arr.findIndex((l) => l.id === id);
+      const newIdx = idx + delta;
+      if (idx < 0 || newIdx < 0 || newIdx >= arr.length) return prev;
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return { ...prev, homeLayout: arr };
+    });
   }, []);
 
   const value = useMemo(
@@ -205,6 +279,7 @@ export function AppProvider({ children }) {
       settings,
       notes,
       dailyPlans,
+      brainDumps,
       habits,
       updateSettings,
       updateWeeklyNote,
@@ -224,14 +299,24 @@ export function AppProvider({ children }) {
       addHabit,
       updateHabit,
       deleteHabit,
+      addBrainDump,
+      updateBrainDump,
+      deleteBrainDump,
+      togglePinCategory,
+      reorderPinned,
+      setLayoutVisible,
+      moveLayoutItem,
       reloadFromStorage,
     }),
     [
-      entries, actions, settings, notes, dailyPlans, habits,
+      entries, actions, settings, notes, dailyPlans, brainDumps, habits,
       updateSettings, updateWeeklyNote, updateMonthlyNote, updateDailyPlan,
       logAction, logActivity, addEntryAt, updateEntry, deleteEntry, restoreEntry,
       undoLastEntry, undoDelete, addAction, updateAction, deleteAction,
-      addHabit, updateHabit, deleteHabit, reloadFromStorage,
+      addHabit, updateHabit, deleteHabit,
+      addBrainDump, updateBrainDump, deleteBrainDump,
+      togglePinCategory, reorderPinned, setLayoutVisible, moveLayoutItem,
+      reloadFromStorage,
     ],
   );
 

@@ -3,20 +3,33 @@
 // IMPORTANT: migrations MUST preserve user data. Never wipe.
 
 import { DEFAULT_SETTINGS } from "./storage";
+import { DEFAULT_CATEGORY_COLORS } from "./categoryColors";
 
 const SCHEMA_KEY = "cbe.schema.version";
-const TARGET_VERSION = 2;
+const TARGET_VERSION = 3;
 
-// Default categories (v2 — drives Quick Add UX)
+// Default categories (v2 — drives Quick Add UX, v3 adds color)
 export const DEFAULT_CATEGORIES = [
-  { name: "PT Study", type: "positive", icon: "BookOpen" },
-  { name: "BW Strength Systems", type: "positive", icon: "Dumbbell" },
-  { name: "Content", type: "positive", icon: "Camera" },
-  { name: "Reading", type: "positive", icon: "Book" },
-  { name: "AI / Systems", type: "positive", icon: "Cpu" },
-  { name: "Scrolling", type: "negative", icon: "Smartphone" },
-  { name: "Gaming", type: "negative", icon: "Gamepad2" },
-  { name: "Wasted Time", type: "negative", icon: "Clock" },
+  { name: "PT Study", type: "positive", icon: "BookOpen", color: "sky", description: "Coaching study & curriculum" },
+  { name: "BW Strength Systems", type: "positive", icon: "Dumbbell", color: "emerald", description: "Strength programming & systems work" },
+  { name: "Content", type: "positive", icon: "Camera", color: "violet", description: "Creating posts, reels, videos" },
+  { name: "Reading", type: "positive", icon: "Book", color: "amber", description: "Books, essays, papers" },
+  { name: "AI / Systems", type: "positive", icon: "Cpu", color: "indigo", description: "Automation & dev work" },
+  { name: "Scrolling", type: "negative", icon: "Smartphone", color: "red", description: "Mindless feed scrolling" },
+  { name: "Gaming", type: "negative", icon: "Gamepad2", color: "red", description: "Out-of-plan gaming or video bingeing" },
+  { name: "Wasted Time", type: "negative", icon: "Clock", color: "red", description: "Unproductive idle time" },
+];
+
+// Default home layout (v3): visible + ordered sections on Dashboard
+export const DEFAULT_HOME_LAYOUT = [
+  { id: "carousel", visible: true },
+  { id: "dailyPlan", visible: true },
+  { id: "search", visible: true },
+  { id: "pinned", visible: true },
+  { id: "recent", visible: true },
+  { id: "habits", visible: true },
+  { id: "build", visible: true },
+  { id: "eliminate", visible: true },
 ];
 
 // Default habits (v2)
@@ -101,7 +114,42 @@ export function runMigrations() {
     migrate_1_to_2();
     v = 2;
   }
+  if (v < 3) {
+    migrate_2_to_3();
+    v = 3;
+  }
   return { from: current, to: v };
+}
+
+function migrate_2_to_3() {
+  // Adds colors + description to categories, seeds homeLayout, pinnedCategories, brain dump bucket.
+  const settings = readJSON("cbe.settings.v1", null) || { ...DEFAULT_SETTINGS };
+  if (Array.isArray(settings.categories)) {
+    settings.categories = settings.categories.map((c) => ({
+      ...c,
+      color: c.color || DEFAULT_CATEGORY_COLORS[c.name] || (c.type === "negative" ? "red" : "emerald"),
+      description: c.description || "",
+    }));
+  } else {
+    settings.categories = [...DEFAULT_CATEGORIES];
+  }
+  if (!Array.isArray(settings.pinnedCategories)) settings.pinnedCategories = [];
+  if (!Array.isArray(settings.homeLayout) || settings.homeLayout.length === 0) {
+    settings.homeLayout = [...DEFAULT_HOME_LAYOUT];
+  } else {
+    // Ensure all known section ids are present (forward-compatible: new sections get visible:true at the end)
+    const existing = new Set(settings.homeLayout.map((l) => l.id));
+    for (const def of DEFAULT_HOME_LAYOUT) {
+      if (!existing.has(def.id)) settings.homeLayout.push({ ...def });
+    }
+  }
+  writeJSON("cbe.settings.v1", settings);
+
+  if (!localStorage.getItem("cbe.brain-dump.v1")) {
+    writeJSON("cbe.brain-dump.v1", []);
+  }
+
+  setVersion(3);
 }
 
 export { TARGET_VERSION, SCHEMA_KEY };

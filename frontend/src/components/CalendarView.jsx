@@ -167,13 +167,13 @@ export default function CalendarView() {
           const isSelected = c.iso === selectedDate;
           const habit = habitCompletionForDate(habits, entries, c.iso);
           const intensity =
-            minutes <= 0 ? 0 : minutes < 30 ? 1 : minutes < 60 ? 2 : minutes < 120 ? 3 : 4;
+            minutes <= 0 ? 0 : minutes <= 30 ? 1 : minutes <= 90 ? 2 : minutes <= 180 ? 3 : 4;
           const bgIntensity = [
             "bg-neutral-900",
             "bg-emerald-500/15",
-            "bg-emerald-500/30",
-            "bg-emerald-500/50",
-            "bg-emerald-500/75",
+            "bg-emerald-500/35",
+            "bg-emerald-500/60",
+            "bg-emerald-500/90",
           ][intensity];
 
           return (
@@ -231,13 +231,13 @@ export default function CalendarView() {
 
       {/* Legend */}
       <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-neutral-500">
-        <span>Tap a day to view & edit</span>
+        <span>0 / ≤30 / ≤90 / ≤180 / 180+ min</span>
         <span className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-sm bg-neutral-900 border border-white/5" />
           <span className="h-2 w-2 rounded-sm bg-emerald-500/15" />
-          <span className="h-2 w-2 rounded-sm bg-emerald-500/30" />
-          <span className="h-2 w-2 rounded-sm bg-emerald-500/50" />
-          <span className="h-2 w-2 rounded-sm bg-emerald-500/75" />
+          <span className="h-2 w-2 rounded-sm bg-emerald-500/35" />
+          <span className="h-2 w-2 rounded-sm bg-emerald-500/60" />
+          <span className="h-2 w-2 rounded-sm bg-emerald-500/90" />
         </span>
       </div>
 

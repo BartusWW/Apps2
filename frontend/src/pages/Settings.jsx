@@ -5,6 +5,9 @@ import { Plus, Trash2, Pencil, Check, X, Target, Bell, BellOff, PieChart as PieC
 import { onInstallAvailability, promptInstall } from "../lib/pwa";
 import HabitsEditor from "../components/settings/HabitsEditor";
 import DataManagement from "../components/settings/DataManagement";
+import AppearanceEditor from "../components/settings/AppearanceEditor";
+import CategoriesEditor from "../components/settings/CategoriesEditor";
+import BrainDumpManager from "../components/settings/BrainDumpManager";
 
 const DEFAULT_CATEGORIES = [
   "PT Study",
@@ -412,6 +415,15 @@ export default function Settings() {
 
       {/* Habits */}
       <HabitsEditor />
+
+      {/* Categories */}
+      <CategoriesEditor />
+
+      {/* Appearance */}
+      <AppearanceEditor />
+
+      {/* Brain Dump */}
+      <BrainDumpManager />
 
       {/* Data Management */}
       <DataManagement />

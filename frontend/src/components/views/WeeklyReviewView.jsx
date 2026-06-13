@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { useApp } from "../../context/AppContext";
 import ProgressBar from "../ProgressBar";
-import Heatmap from "../Heatmap";
 import PeriodNotes from "../PeriodNotes";
 import {
   startOfWeek,
@@ -223,8 +222,6 @@ export default function WeeklyReviewView() {
           </div>
         </div>
       </section>
-
-      <Heatmap entries={entries} />
 
       <PeriodNotes
         title="Weekly Notes"

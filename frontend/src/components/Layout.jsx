@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { LayoutDashboard, ListChecks, BarChart3, Settings as SettingsIcon, Flame } from "lucide-react";
+import BrainDumpFab from "./BrainDumpFab";
 
 const navItems = [
   { to: "/", label: "Home", icon: LayoutDashboard, testId: "nav-dashboard", end: true },
@@ -34,6 +35,9 @@ export default function Layout() {
       <main className="max-w-md mx-auto px-5 pt-6 pb-28">
         <Outlet />
       </main>
+
+      {/* Floating Brain Dump */}
+      <BrainDumpFab />
 
       {/* Bottom navigation */}
       <nav

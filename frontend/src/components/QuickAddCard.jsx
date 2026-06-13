@@ -1,33 +1,24 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import * as Icons from "lucide-react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Pin, PinOff } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { computePoints } from "../lib/scoring";
+import { paletteFor } from "../lib/categoryColors";
 
 const PRESETS = [10, 20, 30, 60];
 
-/**
- * Single category quick-add card.
- * Props: category = { name, type: 'positive'|'negative', icon }
- */
 export default function QuickAddCard({ category }) {
-  const { logActivity, deleteEntry } = useApp();
+  const { logActivity, deleteEntry, settings, togglePinCategory } = useApp();
   const [customOpen, setCustomOpen] = useState(false);
   const [customValue, setCustomValue] = useState("");
   const Icon = Icons[category.icon] || Icons.Zap;
   const isPositive = category.type === "positive";
+  const isPinned = (settings.pinnedCategories || []).includes(category.name);
 
-  const accent = isPositive ? "emerald" : "red";
-  const iconWrap = isPositive
-    ? "bg-emerald-500 text-black"
-    : "bg-red-600 text-white";
-  const cardBorder = isPositive
-    ? "border-emerald-500/20 hover:border-emerald-500/40"
-    : "border-red-500/20 hover:border-red-500/40";
-  const btnClass = isPositive
-    ? "border-emerald-500/30 hover:bg-emerald-500/15 hover:border-emerald-500/50 text-emerald-300"
-    : "border-red-500/30 hover:bg-red-500/15 hover:border-red-500/50 text-red-300";
+  // Color inheritance: use category.color, fall back to type-based default.
+  const colorId = category.color || (isPositive ? "emerald" : "red");
+  const p = paletteFor(colorId);
 
   const log = (minutes) => {
     const mins = Number(minutes);
@@ -50,9 +41,7 @@ export default function QuickAddCard({ category }) {
         label: "Undo",
         onClick: () => deleteEntry(entry.id),
       },
-      className: isPositive
-        ? "!bg-neutral-900 !border-emerald-500/30 !text-white"
-        : "!bg-neutral-900 !border-red-500/40 !text-white",
+      className: `!bg-neutral-900 !${p.border.replace("/30", "/40")} !text-white`,
     });
     setCustomValue("");
     setCustomOpen(false);
@@ -60,19 +49,31 @@ export default function QuickAddCard({ category }) {
 
   return (
     <div
-      className={`bg-neutral-900 border ${cardBorder} rounded-xl p-4 transition-colors`}
+      className={`bg-neutral-900 border ${p.border} ${p.borderHover} rounded-xl p-4 transition-colors`}
       data-testid={`quick-add-card-${category.name}`}
     >
       <div className="flex items-center gap-3">
-        <span className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${iconWrap}`}>
+        <span className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${p.iconBg}`}>
           <Icon size={18} strokeWidth={2.5} />
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white truncate">{category.name}</p>
           <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
             {isPositive ? `+20 pts / hr` : `−30 pts / hr`}
+            {category.description ? ` · ${category.description}` : ""}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => togglePinCategory(category.name)}
+          data-testid={`pin-${category.name}`}
+          className={`p-1.5 rounded-md transition-colors ${
+            isPinned ? p.text : "text-neutral-600 hover:text-neutral-300"
+          }`}
+          aria-label={isPinned ? "Unpin" : "Pin"}
+        >
+          {isPinned ? <Pin size={13} fill="currentColor" /> : <PinOff size={13} />}
+        </button>
       </div>
 
       <div className="grid grid-cols-4 gap-2 mt-3">
@@ -84,7 +85,7 @@ export default function QuickAddCard({ category }) {
               type="button"
               onClick={() => log(m)}
               data-testid={`quick-add-${category.name}-${m}`}
-              className={`relative flex flex-col items-center justify-center py-2 rounded-lg border bg-transparent transition-colors ${btnClass}`}
+              className={`relative flex flex-col items-center justify-center py-2 rounded-lg border bg-transparent transition-colors ${p.border} ${p.borderHover} ${p.presetText}`}
             >
               <span className="font-display font-extrabold text-lg leading-none tracking-tighter">
                 {m}
@@ -118,9 +119,7 @@ export default function QuickAddCard({ category }) {
               type="button"
               onClick={() => log(customValue)}
               data-testid={`quick-add-${category.name}-custom-submit`}
-              className={`text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-lg ${
-                isPositive ? "bg-emerald-500 text-black hover:bg-emerald-400" : "bg-red-500 text-black hover:bg-red-400"
-              }`}
+              className={`text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-lg ${p.solidBtn}`}
             >
               Add
             </button>
@@ -138,7 +137,7 @@ export default function QuickAddCard({ category }) {
             type="button"
             onClick={() => setCustomOpen(true)}
             data-testid={`quick-add-${category.name}-custom-toggle`}
-            className={`w-full flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold py-1.5 rounded-lg border border-dashed border-white/15 text-neutral-400 hover:text-white hover:border-${accent}-500/40`}
+            className="w-full flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold py-1.5 rounded-lg border border-dashed border-white/15 text-neutral-400 hover:text-white hover:border-white/30"
           >
             <Plus size={12} /> Custom
           </button>
