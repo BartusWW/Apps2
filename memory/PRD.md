@@ -189,6 +189,16 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
+
+## Implemented (2026-02-13 — Category vs Action Refactor)
+- **Architectural clarification**: Categories are now strictly **metadata** (used for stats / filtering / review breakdowns); **Actions** are the loggable units.
+- **AppContext.logActivity**: log entries now persist both `actionId` and `category`. Legacy `logAction` is retained for backwards compatibility.
+- **CompactActivityCard / LogModal / PinnedRow / Dashboard**: already route logs through `actionId`. Instant actions log immediately; timed actions open LogModal for duration entry.
+- **HomeSearch.jsx**: refactored to search the `actions` array (not categories). Instant action results log inline; timed action results open LogModal.
+- **RecentlyUsedRow.jsx**: refactored to derive recent items from `entries[].actionId` (unique, last 5). Tap = log (instant) or open LogModal (timed).
+- **Settings → ActionsEditor**: new editor mounted at top of Settings, replacing the legacy inline ActionForm. Per user request, kept as **Positive / Negative split** (not category-grouped). Category dropdown + Type selector + IconPicker + auto sign-correction.
+- **Testing**: Frontend testing agent ran 9 scenarios at 100% pass / zero console errors (iteration_2.json).
+
 ## Backlog
 ### P1
 - Web Push for reminders (requires backend; deferred)
