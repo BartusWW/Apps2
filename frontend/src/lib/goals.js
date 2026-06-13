@@ -2,6 +2,55 @@
 // Goals are a strategic layer that link many categories/habits together and
 // compare TARGET allocation vs ACTUAL allocation of dev time.
 
+import { DEFAULT_DISPLAY_METRICS } from "./migrations";
+
+// ---------- Display presets ----------
+// Each preset is a set of metric keys to enable; everything else is hidden.
+export const DISPLAY_PRESETS = {
+  deadline: {
+    label: "Deadline Focus",
+    enabled: ["daysRemaining", "timeRemainingPct", "deadlineStatus", "priorityWeight"],
+  },
+  investment: {
+    label: "Time Investment",
+    enabled: ["goalHours", "goalPoints", "actualAllocation", "alignment", "lastActivity"],
+  },
+  balanced: {
+    label: "Balanced",
+    enabled: [
+      "goalHours",
+      "priorityWeight",
+      "actualAllocation",
+      "targetAllocation",
+      "alignment",
+      "daysRemaining",
+      "deadlineStatus",
+      "lastActivity",
+    ],
+  },
+  minimal: {
+    label: "Minimal",
+    enabled: ["goalHours"],
+  },
+  custom: {
+    label: "Custom",
+    enabled: null, // user-defined; do not override
+  },
+};
+
+export function metricsForPreset(presetId, existing = {}) {
+  const preset = DISPLAY_PRESETS[presetId];
+  if (!preset || !preset.enabled) return { ...DEFAULT_DISPLAY_METRICS, ...existing };
+  const set = new Set(preset.enabled);
+  const next = {};
+  for (const key of Object.keys(DEFAULT_DISPLAY_METRICS)) {
+    next[key] = set.has(key);
+  }
+  return next;
+}
+
+export { DEFAULT_DISPLAY_METRICS };
+
 // ---------- Goal shape ----------
 // {
 //   id, name, icon, color, description,
@@ -53,11 +102,23 @@ function lastEntryDate(entries, predicate) {
   return best;
 }
 
-function daysBetween(startISO, endISO) {
-  if (!startISO || !endISO) return 0;
-  const s = new Date(`${startISO}T00:00:00`);
-  const e = new Date(`${endISO}T00:00:00`);
-  return Math.max(0, Math.round((e - s) / 86400000));
+function daysBetween(aISO, bISO) {
+  const a = dateAt(aISO);
+  const b = dateAt(bISO);
+  if (!a || !b) return 0;
+  return Math.round((b - a) / 86400000);
+}
+
+function isoDay(d = new Date()) {
+  return d.toISOString().slice(0, 10);
+}
+
+function dateAt(iso) {
+  if (!iso) return null;
+  // Treat both date-only and full ISO; anchor at noon to avoid TZ drift.
+  const str = iso.length === 10 ? `${iso}T12:00:00` : iso;
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 // ---------- Goal-scoped predicates ----------
@@ -132,7 +193,7 @@ export function computeGoalsSnapshot(goals, entries) {
         : 0;
     const targetPct = Math.max(0, Math.min(100, Number(g.targetAllocation) || 0));
     const diff = actualPct - targetPct;
-    return {
+    const snap = {
       goal: g,
       stats,
       breakdown,
@@ -141,6 +202,9 @@ export function computeGoalsSnapshot(goals, entries) {
       diff,
       status: alignmentStatus(targetPct, actualPct),
     };
+    snap.deadlineStats = computeDeadlineStats(g);
+    snap.health = computeHealthStatus(g, snap, snap.deadlineStats);
+    return snap;
   });
 
   // Average completion time in days
@@ -203,3 +267,66 @@ export function formatDuration(days) {
   const years = Math.round((days / 365) * 10) / 10;
   return `${years} year${years === 1 ? "" : "s"}`;
 }
+
+// ---------- Deadline + Health ----------
+// Returns null when the goal has no deadline; otherwise the urgency snapshot.
+//   { totalDays, daysRemaining, timeRemainingPct, timeConsumedPct, colorBand }
+// colorBand follows the spec (% remaining, NOT absolute days):
+//   green   66–100, yellow 33–66, orange 15–33, red 0–15.
+export function computeDeadlineStats(goal, today = new Date()) {
+  if (!goal?.deadline) return null;
+  const todayISO = isoDay(today);
+  const createdISO = (goal.createdAt || new Date().toISOString()).slice(0, 10);
+  const deadlineISO = goal.deadline.slice(0, 10);
+
+  const totalDays = Math.max(1, daysBetween(createdISO, deadlineISO));
+  const daysRemaining = daysBetween(todayISO, deadlineISO);
+  const timeRemainingPct = Math.max(
+    0,
+    Math.min(100, Math.round((daysRemaining / totalDays) * 100)),
+  );
+  const timeConsumedPct = 100 - timeRemainingPct;
+
+  let colorBand;
+  if (timeRemainingPct >= 66) colorBand = "green";
+  else if (timeRemainingPct >= 33) colorBand = "yellow";
+  else if (timeRemainingPct >= 15) colorBand = "orange";
+  else colorBand = "red";
+
+  return {
+    totalDays,
+    daysRemaining,
+    timeRemainingPct,
+    timeConsumedPct,
+    colorBand,
+    overdue: daysRemaining < 0,
+  };
+}
+
+// Health blends progress vs time. Uses actualPct/targetPct already in snapshot.
+//   goalProgressPct = (actualPct / targetPct) * 100, capped at 100 when no target.
+//   diff = goalProgressPct - timeConsumedPct
+//     diff >= 0  → on-track   (Ahead handled separately via alignment)
+//     -25 < diff < -10 → at-risk
+//     diff <= -25 → critical
+// When the goal has no deadline, returns null (caller falls back to alignment).
+export function computeHealthStatus(goal, snapshot, deadlineStats) {
+  if (goal.status === "completed") return "completed";
+  if (!deadlineStats) return null;
+  const target = Math.max(1, snapshot.targetPct || 0);
+  const goalProgress = Math.min(
+    100,
+    Math.round(((snapshot.actualPct || 0) / target) * 100),
+  );
+  const diff = goalProgress - deadlineStats.timeConsumedPct;
+  if (diff <= -25) return "critical";
+  if (diff <= -10) return "at-risk";
+  return "on-track";
+}
+
+// Days early / late at completion. Positive = early, negative = late.
+export function daysEarlyOrLate(goal) {
+  if (!goal?.deadline || !goal?.completedAt) return null;
+  return daysBetween(goal.completedAt.slice(0, 10), goal.deadline.slice(0, 10));
+}
+

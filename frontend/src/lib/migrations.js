@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "./storage";
 import { DEFAULT_CATEGORY_COLORS } from "./categoryColors";
 
 const SCHEMA_KEY = "cbe.schema.version";
-const TARGET_VERSION = 5;
+const TARGET_VERSION = 6;
 
 // Default categories (v2 — drives Quick Add UX, v3 adds color)
 export const DEFAULT_CATEGORIES = [
@@ -24,6 +24,7 @@ export const DEFAULT_CATEGORIES = [
 export const DEFAULT_HOME_LAYOUT = [
   { id: "carousel", visible: true },
   { id: "dailyPlan", visible: true },
+  { id: "nextDeadline", visible: true },
   { id: "search", visible: true },
   { id: "pinned", visible: true },
   { id: "recent", visible: true },
@@ -180,6 +181,72 @@ function migrate_4_to_5() {
   setVersion(5);
 }
 
+// Default display-metric flags for goals. Used by migration + form.
+const DEFAULT_DISPLAY_METRICS = {
+  targetAllocation: true,
+  actualAllocation: true,
+  alignment: true,
+  goalHours: true,
+  goalPoints: false,
+  priorityWeight: true,
+  daysRemaining: true,
+  timeRemainingPct: true,
+  deadlineStatus: true,
+  createdDate: false,
+  lastActivity: true,
+  completionEstimate: false,
+  progressTrend: false,
+};
+
+// v5 → v6: deadline + display-customization fields on every existing goal.
+// Strictly additive — preserves existing data, defaults to no-deadline.
+function migrate_5_to_6() {
+  const raw = localStorage.getItem("cbe.goals.v1");
+  let goals = [];
+  if (raw) {
+    try {
+      goals = JSON.parse(raw);
+      if (!Array.isArray(goals)) goals = [];
+    } catch {
+      goals = [];
+    }
+  }
+  goals = goals.map((g) => ({
+    ...g,
+    deadline: g.deadline ?? null,
+    deadlineType: g.deadlineType || "none",
+    displayPreset: g.displayPreset || "balanced",
+    displayMetrics: { ...DEFAULT_DISPLAY_METRICS, ...(g.displayMetrics || {}) },
+    viewMode: g.viewMode || "detailed",
+  }));
+  localStorage.setItem("cbe.goals.v1", JSON.stringify(goals));
+
+  // Ensure home layout knows about the Next Deadline widget.
+  try {
+    const sRaw = localStorage.getItem("cbe.settings.v1");
+    if (sRaw) {
+      const settings = JSON.parse(sRaw);
+      if (Array.isArray(settings.homeLayout)) {
+        const has = settings.homeLayout.some((l) => l.id === "nextDeadline");
+        if (!has) {
+          // Insert after dailyPlan so it sits beneath Today's Focus.
+          const idx = settings.homeLayout.findIndex((l) => l.id === "dailyPlan");
+          const item = { id: "nextDeadline", visible: true };
+          if (idx >= 0) settings.homeLayout.splice(idx + 1, 0, item);
+          else settings.homeLayout.push(item);
+          localStorage.setItem("cbe.settings.v1", JSON.stringify(settings));
+        }
+      }
+    }
+  } catch {
+    /* ignore home-layout patch errors; defaults will appear for new users */
+  }
+
+  setVersion(6);
+}
+
+export { DEFAULT_DISPLAY_METRICS };
+
 export function runMigrations() {
   const current = getVersion();
   if (current >= TARGET_VERSION) return { from: current, to: current };
@@ -199,6 +266,10 @@ export function runMigrations() {
   if (v < 5) {
     migrate_4_to_5();
     v = 5;
+  }
+  if (v < 6) {
+    migrate_5_to_6();
+    v = 6;
   }
   return { from: current, to: v };
 }

@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown, Eye, EyeOff, LayoutGrid } from "lucide-react";
 const SECTION_LABELS = {
   carousel: "Main Score (Score / Time)",
   dailyPlan: "Today's Focus",
+  nextDeadline: "Next Deadline Widget",
   search: "Search Bar",
   pinned: "Pinned Activities",
   recent: "Recently Used",

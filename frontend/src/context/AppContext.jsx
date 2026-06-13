@@ -301,6 +301,13 @@ export function AppProvider({ children }) {
       createdAt: goal.createdAt || new Date().toISOString(),
       completedAt: null,
       finalNotes: null,
+      // Deadline fields
+      deadline: goal.deadline || null,
+      deadlineType: goal.deadlineType || "none",
+      // Display customization
+      displayPreset: goal.displayPreset || "balanced",
+      displayMetrics: goal.displayMetrics || null, // null = derived from preset
+      viewMode: goal.viewMode || "detailed",
     };
     setGoals((prev) => [next, ...prev]);
     return next;

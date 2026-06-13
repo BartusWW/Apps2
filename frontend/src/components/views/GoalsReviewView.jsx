@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react";
 import * as Icons from "lucide-react";
-import { Target, Trophy, Clock, Sparkles, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Target,
+  Trophy,
+  Clock,
+  Sparkles,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "../../context/AppContext";
 import { computeGoalsSnapshot, formatHours, formatDuration } from "../../lib/goals";
@@ -8,6 +17,25 @@ import { paletteFor } from "../../lib/categoryColors";
 import GoalCard, { CompletedGoalCard } from "../GoalCard";
 import GoalForm from "../GoalForm";
 import CompleteGoalModal from "../CompleteGoalModal";
+
+const DEADLINE_TEXT = {
+  green: "text-emerald-400",
+  yellow: "text-yellow-400",
+  orange: "text-amber-400",
+  red: "text-red-400",
+};
+
+const HEALTH_TEXT = {
+  "on-track": "text-emerald-400",
+  "at-risk": "text-amber-400",
+  critical: "text-red-400",
+};
+
+const HEALTH_LABEL = {
+  "on-track": "On Track",
+  "at-risk": "At Risk",
+  critical: "Critical",
+};
 
 function StatTile({ label, value, sub, accent = "text-white", testId }) {
   return (
@@ -195,6 +223,65 @@ export default function GoalsReviewView() {
           <AllocationBars snapshots={active} />
         </div>
       </section>
+
+      {/* Upcoming Deadlines — sorted by urgency */}
+      {(() => {
+        const withDeadline = active
+          .filter((s) => s.deadlineStats)
+          .sort((a, b) => a.deadlineStats.daysRemaining - b.deadlineStats.daysRemaining);
+        if (withDeadline.length === 0) return null;
+        return (
+          <section data-testid="upcoming-deadlines" className="space-y-2">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-amber-400 font-semibold flex items-center gap-1.5">
+              <Calendar size={11} /> Upcoming Deadlines
+            </p>
+            <ul className="space-y-1.5">
+              {withDeadline.map((s) => {
+                const Icon = Icons[s.goal.icon] || Icons.Target;
+                const p = paletteFor(s.goal.color);
+                const ds = s.deadlineStats;
+                return (
+                  <li
+                    key={s.goal.id}
+                    className="bg-neutral-900 border border-white/10 rounded-lg px-3.5 py-3 flex items-center gap-3"
+                    data-testid={`upcoming-row-${s.goal.id}`}
+                  >
+                    <span className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${p.softBg} ${p.text}`}>
+                      <Icon size={13} strokeWidth={2.5} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {s.goal.name}
+                        {s.goal.deadlineType === "hard" && (
+                          <span className="ml-1.5 text-[9px] uppercase tracking-widest text-red-400 font-semibold">
+                            HARD
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
+                        <span className={DEADLINE_TEXT[ds.colorBand]}>
+                          {ds.overdue
+                            ? `${Math.abs(ds.daysRemaining)}d overdue`
+                            : `${ds.daysRemaining}d · ${ds.timeRemainingPct}%`}
+                        </span>
+                        {" · "}P{s.goal.priorityWeight}/10
+                      </p>
+                    </div>
+                    {s.health && (
+                      <span
+                        className={`text-[10px] uppercase tracking-widest font-semibold ${HEALTH_TEXT[s.health]}`}
+                        data-testid={`upcoming-health-${s.goal.id}`}
+                      >
+                        {HEALTH_LABEL[s.health]}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })()}
 
       {/* Section 3 + 4 — Alignment + Breakdown (combined per goal card) */}
       <section data-testid="goal-alignment" className="space-y-2">

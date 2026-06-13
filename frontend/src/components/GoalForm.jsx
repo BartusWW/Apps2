@@ -1,10 +1,11 @@
 import { useState } from "react";
 import * as Icons from "lucide-react";
-import { X, Check } from "lucide-react";
+import { X, Check, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { COLOR_OPTIONS, paletteFor } from "../lib/categoryColors";
 import IconPicker from "./IconPicker";
 import { useApp } from "../context/AppContext";
+import { DISPLAY_PRESETS, metricsForPreset, DEFAULT_DISPLAY_METRICS } from "../lib/goals";
 
 const blank = {
   name: "",
@@ -16,6 +17,11 @@ const blank = {
   linkedActivities: [],
   linkedHabits: [],
   notes: "",
+  deadline: "",
+  deadlineType: "none",
+  displayPreset: "balanced",
+  displayMetrics: null,
+  viewMode: "detailed",
 };
 
 function MultiToggleList({ items, value, onToggle, testIdPrefix }) {
@@ -50,12 +56,44 @@ function MultiToggleList({ items, value, onToggle, testIdPrefix }) {
 
 export default function GoalForm({ open, initial, onSave, onClose }) {
   const { settings, habits } = useApp();
-  const [form, setForm] = useState({ ...blank, ...(initial || {}) });
+  const seeded = { ...blank, ...(initial || {}) };
+  if (seeded.deadline && seeded.deadline.length > 10) {
+    seeded.deadline = seeded.deadline.slice(0, 10);
+  }
+  if (!seeded.displayMetrics) {
+    seeded.displayMetrics = metricsForPreset(seeded.displayPreset);
+  }
+  const [form, setForm] = useState(seeded);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [showCustomMetrics, setShowCustomMetrics] = useState(
+    seeded.displayPreset === "custom",
+  );
 
   if (!open) return null;
   const Icon = Icons[form.icon] || Icons.Target;
   const p = paletteFor(form.color);
+
+  const setPreset = (presetId) => {
+    if (presetId === "custom") {
+      setForm((f) => ({ ...f, displayPreset: "custom" }));
+      setShowCustomMetrics(true);
+    } else {
+      setForm((f) => ({
+        ...f,
+        displayPreset: presetId,
+        displayMetrics: metricsForPreset(presetId),
+      }));
+      setShowCustomMetrics(false);
+    }
+  };
+
+  const toggleMetric = (key) => {
+    setForm((f) => ({
+      ...f,
+      displayPreset: "custom",
+      displayMetrics: { ...f.displayMetrics, [key]: !f.displayMetrics[key] },
+    }));
+  };
 
   const toggleActivity = (name) => {
     setForm((f) => {
@@ -88,6 +126,9 @@ export default function GoalForm({ open, initial, onSave, onClose }) {
       });
       return;
     }
+    const deadline = form.deadline
+      ? new Date(`${form.deadline}T12:00:00`).toISOString()
+      : null;
     onSave({
       ...form,
       name: form.name.trim(),
@@ -95,6 +136,11 @@ export default function GoalForm({ open, initial, onSave, onClose }) {
       notes: (form.notes || "").trim(),
       targetAllocation: Number(form.targetAllocation) || 0,
       priorityWeight: Number(form.priorityWeight) || 5,
+      deadline,
+      deadlineType: deadline ? form.deadlineType || "soft" : "none",
+      displayPreset: form.displayPreset || "balanced",
+      displayMetrics: form.displayMetrics || metricsForPreset(form.displayPreset || "balanced"),
+      viewMode: form.viewMode || "detailed",
     });
   };
 
@@ -254,6 +300,133 @@ export default function GoalForm({ open, initial, onSave, onClose }) {
             />
           </div>
         )}
+
+        {/* ----- Deadline ----- */}
+        <div className="border-t border-white/5 pt-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Calendar size={12} className="text-amber-400" />
+            <p className="text-[10px] uppercase tracking-[0.18em] text-amber-400 font-semibold">
+              Deadline (optional)
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                Date
+              </label>
+              <input
+                type="date"
+                value={form.deadline || ""}
+                onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+                data-testid="goal-deadline-input"
+                className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-neutral-500">
+                Type
+              </label>
+              <select
+                value={form.deadlineType || "none"}
+                onChange={(e) => setForm({ ...form, deadlineType: e.target.value })}
+                disabled={!form.deadline}
+                data-testid="goal-deadline-type"
+                className="w-full mt-1 bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50 disabled:opacity-40"
+              >
+                <option value="none">No Deadline</option>
+                <option value="soft">Soft</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+          </div>
+          {form.deadline && (
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">
+              {form.deadlineType === "hard"
+                ? "Hard — must complete by this date."
+                : form.deadlineType === "soft"
+                  ? "Soft — target date, can slip without changing status."
+                  : "Pick Soft or Hard above."}
+            </p>
+          )}
+        </div>
+
+        {/* ----- Display Customization ----- */}
+        <div className="border-t border-white/5 pt-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-violet-400 font-semibold">
+              Card Display
+            </p>
+            <select
+              value={form.viewMode}
+              onChange={(e) => setForm({ ...form, viewMode: e.target.value })}
+              data-testid="goal-view-mode"
+              className="bg-neutral-950 border border-white/10 rounded-lg px-2 py-1 text-[10px] uppercase tracking-widest text-neutral-300 focus:outline-none focus:border-violet-500/50"
+            >
+              <option value="detailed">Detailed</option>
+              <option value="compact">Compact</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(DISPLAY_PRESETS).map(([id, p]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setPreset(id)}
+                data-testid={`goal-preset-${id}`}
+                className={`text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                  form.displayPreset === id
+                    ? "bg-violet-500 text-white border-violet-500"
+                    : "border-white/15 text-neutral-300 hover:bg-white/5"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCustomMetrics((s) => !s)}
+            data-testid="goal-toggle-custom-metrics"
+            className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-white"
+          >
+            {showCustomMetrics ? "Hide metric toggles" : "Customize metrics"}
+          </button>
+          {showCustomMetrics && (
+            <ul
+              className="grid grid-cols-2 gap-1.5 pt-1"
+              data-testid="goal-custom-metrics"
+            >
+              {Object.keys(DEFAULT_DISPLAY_METRICS).map((key) => {
+                const on = form.displayMetrics?.[key];
+                return (
+                  <li key={key}>
+                    <button
+                      type="button"
+                      onClick={() => toggleMetric(key)}
+                      data-testid={`goal-metric-${key}`}
+                      className={`w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-md border text-[11px] ${
+                        on
+                          ? "border-violet-500/40 bg-violet-500/10 text-white"
+                          : "border-white/10 text-neutral-400 hover:bg-white/5"
+                      }`}
+                    >
+                      <span
+                        className={`h-3 w-3 rounded-sm border flex items-center justify-center ${
+                          on ? "bg-violet-500 border-violet-500" : "border-white/20"
+                        }`}
+                      >
+                        {on && <Check size={9} strokeWidth={3} className="text-white" />}
+                      </span>
+                      <span className="capitalize">
+                        {key.replace(/([A-Z])/g, " $1").trim()}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
 
         <div>
           <label className="text-[10px] uppercase tracking-widest text-neutral-500">

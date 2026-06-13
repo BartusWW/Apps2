@@ -54,6 +54,21 @@ A driven individual (coach/athlete) who already trains and works automatically, 
 - TIME VIEW: Today's Dev Time, This Week Dev Time, Weekly Goal progress bar (20h default), Top Investment category, Weekly Trend (h+m delta vs last week), Time by Category sky-blue progress bars, "Future Self Investment" comparison card (This Week / Last Week / Delta)
 - Time aggregation only counts positive entries with minutes > 0; "Published Post/Reel" (0 min) earns points but not time, validating the requirement that points & time are tracked independently
 
+## Implemented (2026-02-13 — Goal Deadlines & Urgency V1)
+- **Optional deadline + type** (None / Soft / Hard) on every goal. Form picks a date and type; persisted to `cbe.goals.v1`.
+- **Time remaining stats** computed in `lib/goals.js → computeDeadlineStats`: `totalDays`, `daysRemaining`, `timeRemainingPct`, `timeConsumedPct`, `colorBand`. Color bands track % remaining (green 66-100, yellow 33-66, orange 15-33, red 0-15), not absolute days, per spec.
+- **Health status** (`computeHealthStatus`) blends goal progress vs time consumed: On Track / At Risk / Critical / Completed. Falls back to alignment status when no deadline is set.
+- **`NextDeadlineWidget`** on Home (below Today's Focus) surfaces the nearest deadline with a color-banded urgency bar + health pill + "View All ([n])" link to Review → Goals. Hidden when no goal has a deadline.
+- **`UpcomingDeadlines`** section inside Review → Goals lists every deadlined goal sorted by urgency, with priority, days left, % time remaining, and health.
+- **Per-goal card customization** — every goal now has:
+  - `displayPreset` (Deadline Focus / Time Investment / Balanced / Minimal / Custom) — one-tap pill in form
+  - `displayMetrics` — 13 individual on/off toggles for each metric (visible in form under "Customize metrics")
+  - `viewMode` (Detailed / Compact) — compact renders as one-line chip; tap to expand
+  - GoalCard respects every flag, so two goals can look completely different
+- **Completed history** now shows the deadline + days early/late on `CompletedGoalCard` when a deadline existed.
+- **Migration v5→v6** (non-destructive): adds the new fields to every existing goal with safe defaults, inserts `nextDeadline` section into existing users' homeLayout.
+- **Bug caught + fixed**: pre-existing `daysBetween` (positive-only) collided with new signed version; consolidated into one helper that supports overdue (negative) values.
+
 ## Implemented (2026-02-13 — Goals System V1)
 - **Goals as a strategic layer** above categories/habits — answers "Did my time go where I intended?"
 - New schema key `cbe.goals.v1` + v4→v5 migration (idempotent, non-destructive).

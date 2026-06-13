@@ -7,6 +7,7 @@ import HomeSearch from "../components/HomeSearch";
 import RecentlyUsedRow from "../components/RecentlyUsedRow";
 import PinnedRow from "../components/PinnedRow";
 import CategorySection from "../components/CategorySection";
+import NextDeadlineWidget from "../components/NextDeadlineWidget";
 
 // Categories with zero entries in the last N days fall into the "Others" bucket
 // so the home screen stays focused on what the user actually uses.
@@ -71,6 +72,8 @@ export default function Dashboard() {
         return <DashboardCarousel key="carousel" />;
       case "dailyPlan":
         return <DailyPlanCard key="dailyPlan" />;
+      case "nextDeadline":
+        return <NextDeadlineWidget key="nextDeadline" />;
       case "search":
         return <HomeSearch key="search" />;
       case "pinned":
