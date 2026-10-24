@@ -2,58 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-    margin: 0;
-    background-color: #0A0A0A;
-    color: #FFFFFF;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI",
-        "Roboto", "Helvetica Neue", sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    overscroll-behavior-y: none;
-}
-
-.font-display {
-    font-family: 'Barlow Condensed', 'Arial Narrow', 'Inter', sans-serif;
-    letter-spacing: -0.01em;
-}
-
-@layer base {
-    :root {
-        --background: 0 0% 4%;
-        --foreground: 0 0% 100%;
-        --card: 0 0% 9%;
-        --card-foreground: 0 0% 100%;
-        --popover: 0 0% 9%;
-        --popover-foreground: 0 0% 100%;
-        --primary: 152 76% 44%;
-        --primary-foreground: 0 0% 4%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 4 100% 59%;
-        --destructive-foreground: 0 0% 100%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 152 76% 44%;
-        --radius: 0.75rem;
-    }
-}
-
-@layer base {
-    * {
-        @apply border-border;
-    }
-    body {
-        @apply bg-background text-foreground;
-    }
-}
-
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
-    }
-}
+body { margin:0; background-color:#070707; color:#fff; font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI","Roboto","Helvetica Neue",sans-serif; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; overscroll-behavior-y:none; }
+.font-display { font-family:'Barlow Condensed','Arial Narrow','Inter',sans-serif; letter-spacing:-0.01em; }
+@layer base { :root { --background:0 0% 3%; --foreground:0 0% 100%; --card:0 0% 7%; --card-foreground:0 0% 100%; --popover:0 0% 7%; --popover-foreground:0 0% 100%; --primary:0 72% 51%; --primary-foreground:0 0% 100%; --secondary:0 0% 14.9%; --secondary-foreground:0 0% 98%; --muted:0 0% 14.9%; --muted-foreground:0 0% 63.9%; --accent:0 0% 14.9%; --accent-foreground:0 0% 98%; --destructive:4 100% 59%; --destructive-foreground:0 0% 100%; --border:0 0% 14.9%; --input:0 0% 14.9%; --ring:0 72% 51%; --radius:.75rem; } *{@apply border-border;} body{@apply text-foreground;} [data-debug-wrapper="true"]{display:contents!important;} }
+.theme-root { background-color:var(--theme-bg,#070707); min-height:100vh; position:relative; isolation:isolate; }
+.theme-root::before { content:""; position:fixed; inset:0; pointer-events:none; z-index:-1; opacity:.16; }
+.theme-header,.theme-nav { background-color:color-mix(in srgb,var(--theme-bg,#070707) 88%,transparent); }
+.theme-primary-bg { background:color-mix(in srgb,var(--theme-primary) calc(var(--theme-alpha)*100%),#111); }
+.theme-primary-text { color:color-mix(in srgb,var(--theme-primary) calc(var(--theme-alpha)*100%),#aaa); }
+.theme-primary-border { border-color:color-mix(in srgb,var(--theme-primary) 55%,transparent); }
+.theme-primary-soft { background:color-mix(in srgb,var(--theme-primary) 10%,var(--theme-surface)); }
+.theme-range { accent-color:var(--theme-primary); }
+.theme-pattern-grid::before { background-image:linear-gradient(color-mix(in srgb,var(--theme-primary) 22%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--theme-primary) 16%,transparent) 1px,transparent 1px); background-size:28px 28px; }
+.theme-pattern-camo::before { opacity:.13; background-image:radial-gradient(ellipse at 15% 20%,#66704a 0 7%,transparent 8%),radial-gradient(ellipse at 72% 32%,#39452f 0 10%,transparent 11%),radial-gradient(ellipse at 42% 72%,#78694a 0 8%,transparent 9%),radial-gradient(ellipse at 88% 82%,#4e583b 0 9%,transparent 10%); background-size:240px 190px; }
+.theme-pattern-nebula::before { opacity:.18; background:radial-gradient(circle at 20% 15%,var(--theme-primary),transparent 26%),radial-gradient(circle at 82% 28%,var(--theme-secondary),transparent 24%),radial-gradient(circle at 50% 86%,var(--theme-tertiary),transparent 22%); filter:blur(28px); }
