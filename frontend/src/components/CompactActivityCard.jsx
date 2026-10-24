@@ -3,7 +3,7 @@ import { Pin, PinOff, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import { paletteFor } from "../lib/categoryColors";
-import { applyPriorityMultiplier, getCategoryPriorityPercent } from "../lib/priorityProfiles";
+import { applyPriorityMultiplier, getSubcategoryPriorityPercent } from "../lib/priorityProfiles";
 
 export default function CompactActivityCard({ action, showPinToggle = true }) {
   const { openLogModal, settings, togglePinAction, logActivity, deleteEntry } = useApp();
@@ -15,8 +15,8 @@ export default function CompactActivityCard({ action, showPinToggle = true }) {
   const p = paletteFor(colorId);
   const isPinned = (settings.pinnedActionIds || []).includes(action.id);
   const isInstant = !Number(action.minutes) || action.minutes <= 0;
-  const effectivePoints = applyPriorityMultiplier(action.points || 0, action.category, settings);
-  const priorityPct = getCategoryPriorityPercent(settings, action.category);
+  const effectivePoints = applyPriorityMultiplier(action.points || 0, action.category, action.subcategory, settings);
+  const priorityPct = getSubcategoryPriorityPercent(settings, action.category, action.subcategory);
 
   const handleLog = () => {
     if (isInstant) {
@@ -24,6 +24,7 @@ export default function CompactActivityCard({ action, showPinToggle = true }) {
         actionId: action.id,
         actionName: action.name,
         category: action.category,
+        subcategory: action.subcategory,
         type: cat?.type || action.type,
         minutes: 0,
         icon: action.icon,
@@ -51,8 +52,8 @@ export default function CompactActivityCard({ action, showPinToggle = true }) {
       </div>
       <div className="min-w-0">
         <p className="text-xs font-semibold text-white leading-tight truncate">{action.name}</p>
-        <p className="text-[9px] uppercase tracking-widest text-neutral-500 mt-0.5">
-          {isInstant ? `${effectivePoints > 0 ? "+" : ""}${effectivePoints} pts · ${priorityPct}%` : `${action.points > 0 ? "+" : ""}${action.points} base / 30m · ${priorityPct}%`}
+        <p className="text-[9px] uppercase tracking-widest text-neutral-500 mt-0.5 truncate">
+          {action.subcategory ? `${action.subcategory} · ` : ""}{isInstant ? `${effectivePoints > 0 ? "+" : ""}${effectivePoints} pts · ${priorityPct}%` : `${action.points > 0 ? "+" : ""}${action.points} base / 30m · ${priorityPct}%`}
         </p>
       </div>
       <button type="button" onClick={handleLog} data-testid={`log-btn-${action.id}`} className={`w-full mt-auto text-[10px] uppercase tracking-widest font-semibold py-1.5 rounded-md ${p.solidBtn}`}>Log</button>
