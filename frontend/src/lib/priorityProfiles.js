@@ -6,7 +6,6 @@ export const clampCategoryPercent = (value) =>
 export const clampSubcategoryPercent = (value) =>
   Math.max(50, Math.min(200, Number(value) || 100));
 
-// Backwards-compatible alias for older UI imports.
 export const clampPriorityPercent = clampCategoryPercent;
 
 export const roundPoints = (value) => {
@@ -26,12 +25,16 @@ export function getCategoryPriorityPercent(settings, category) {
   return clampCategoryPercent(profile.categoryPriorities?.[category] ?? profile.priorities?.[category] ?? 100);
 }
 
+// Unspecified subcategories inherit their parent category percentage. This keeps
+// every profile budget-valid when a category is lowered, while explicit subcategory
+// values can still redistribute that budget toward the real priority.
 export function getSubcategoryPriorityPercent(settings, category, subcategory) {
   if (!subcategory) return 100;
   const profile = getActivePriorityProfile(settings);
   if (!profile) return 100;
   const key = `${category}::${subcategory}`;
-  return clampSubcategoryPercent(profile.subcategoryPriorities?.[key] ?? 100);
+  const inherited = clampCategoryPercent(profile.categoryPriorities?.[category] ?? profile.priorities?.[category] ?? 100);
+  return clampSubcategoryPercent(profile.subcategoryPriorities?.[key] ?? inherited);
 }
 
 export function getCategoryBudget(settings, category, subcategoryCount) {
@@ -62,7 +65,7 @@ export function validateProfileBudgets(settings, profile) {
     const cap = subs.length * categoryPct;
     const spend = subs.reduce((sum, sub) => {
       const key = `${cat.name}::${sub.name}`;
-      return sum + clampSubcategoryPercent(profile?.subcategoryPriorities?.[key] ?? 100);
+      return sum + clampSubcategoryPercent(profile?.subcategoryPriorities?.[key] ?? categoryPct);
     }, 0);
     if (spend > cap) subcategoryErrors.push({ category: cat.name, spend, cap });
   }
