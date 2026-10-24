@@ -2,14 +2,17 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import CalendarView from "../components/CalendarView";
-import { Download, Trash2, Inbox, ListChecks, CalendarDays } from "lucide-react";
+import CompactActivityCard from "../components/CompactActivityCard";
+import RecentlyUsedRow from "../components/RecentlyUsedRow";
+import { Download, Trash2, Inbox, ListChecks, CalendarDays, Flame, Search } from "lucide-react";
 import { formatDateShort, localISO } from "../lib/dateUtils";
 import { displayPoints } from "../lib/scoring";
+import { getSubcategoryPriorityPercent } from "../lib/priorityProfiles";
 
-const TABS = [{ id: "list", label: "List", icon: ListChecks }, { id: "calendar", label: "Calendar", icon: CalendarDays }];
+const TABS = [{ id: "actions", label: "Actions", icon: Flame }, { id: "list", label: "History", icon: ListChecks }, { id: "calendar", label: "Calendar", icon: CalendarDays }];
 
 function downloadCSV(entries) {
-  const headers = ["id", "date", "time", "category", "actionName", "minutes", "points", "type"];
+  const headers = ["id", "date", "time", "category", "subcategory", "actionName", "minutes", "points", "type"];
   const rows = [headers.join(",")];
   for (const e of entries) {
     const row = headers.map((h) => { const v = e[h] ?? ""; const s = String(v).replace(/"/g, '""'); return /[",\n]/.test(s) ? `"${s}"` : s; });
@@ -20,12 +23,39 @@ function downloadCSV(entries) {
 }
 
 export default function Log() {
-  const { entries, deleteEntry, restoreEntry } = useApp(); const [mode, setMode] = useState("list");
+  const { entries, deleteEntry, restoreEntry, actions, settings } = useApp();
+  const [mode, setMode] = useState("actions");
+  const [query, setQuery] = useState("");
   const grouped = useMemo(() => { const byDate = {}; for (const e of entries) { if (!byDate[e.date]) byDate[e.date] = []; byDate[e.date].push(e); } return Object.entries(byDate).sort((a, b) => (a[0] < b[0] ? 1 : -1)); }, [entries]);
   const handleDelete = (entry) => { deleteEntry(entry.id); toast("Entry removed", { description: `${entry.actionName} (${displayPoints(entry.points, { decimal: true })})`, action: { label: "Undo", onClick: () => restoreEntry(entry) }, className: "!bg-neutral-900 !border-white/10 !text-white" }); };
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (actions || []).filter((a) => !q || `${a.name} ${a.category} ${a.subcategory || ""}`.toLowerCase().includes(q));
+  }, [actions, query]);
+
+  const priorityActions = useMemo(() => filtered
+    .map((a) => ({ ...a, pct: getSubcategoryPriorityPercent(settings, a.category, a.subcategory) }))
+    .filter((a) => a.pct > 100)
+    .sort((a, b) => b.pct - a.pct || b.points - a.points)
+    .slice(0, 8), [filtered, settings]);
+
+  const categories = useMemo(() => [...(settings.categories || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)), [settings.categories]);
+
   return <div className="space-y-5" data-testid="log-page">
-    <div className="flex items-center justify-between"><div className="flex items-center gap-1.5 bg-neutral-900 border border-white/10 rounded-full p-1">{TABS.map((t) => { const Icon = t.icon; const active = mode === t.id; return <button key={t.id} type="button" onClick={() => setMode(t.id)} data-testid={`log-tab-${t.id}`} className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] uppercase tracking-widest font-semibold ${active ? t.id === "calendar" ? "bg-sky-500 text-black" : "bg-emerald-500 text-black" : "text-neutral-400 hover:text-white"}`}><Icon size={12} />{t.label}</button>; })}</div>{mode === "list" && <button type="button" onClick={() => downloadCSV(entries)} disabled={entries.length === 0} data-testid="export-csv-btn" className="flex items-center gap-2 text-xs uppercase font-semibold tracking-widest border border-white/15 rounded-lg px-3 py-2 hover:bg-white/5 disabled:opacity-40"><Download size={14} />CSV</button>}</div>
-    {mode === "calendar" ? <CalendarView /> : <><header><h1 className="font-display font-extrabold text-3xl uppercase tracking-tight">Log</h1><p className="text-xs text-neutral-500 mt-1 uppercase tracking-widest">{entries.length} {entries.length === 1 ? "entry" : "entries"}</p></header>{entries.length === 0 ? <div className="border border-dashed border-white/10 rounded-xl p-10 flex flex-col items-center text-center" data-testid="log-empty"><Inbox size={28} className="text-neutral-600" /><p className="mt-3 font-display font-bold uppercase tracking-tight">No entries yet</p><p className="text-xs text-neutral-500 mt-1.5">Log your first action from the dashboard.</p></div> : <div className="space-y-5" data-testid="log-list">{grouped.map(([date, items]) => <section key={date}><div className="flex items-center justify-between mb-2"><h2 className="text-[10px] uppercase tracking-[0.18em] text-neutral-500 font-semibold">{formatDateShort(date)}</h2><span className="text-[10px] text-neutral-600 uppercase tracking-widest">{items.length} {items.length === 1 ? "entry" : "entries"}</span></div><ul className="space-y-1.5">{items.map((e) => <li key={e.id} className="bg-neutral-900 border border-white/10 rounded-lg px-3.5 py-3 flex items-center gap-3" data-testid={`log-entry-${e.id}`}><div className="flex-1 min-w-0"><p className="text-sm font-medium text-white truncate">{e.actionName}</p><p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">{e.time} · {e.category}{e.minutes ? ` · ${e.minutes}m` : ""}</p></div><span className={`font-display font-extrabold text-xl tracking-tighter ${e.points >= 0 ? "text-emerald-400" : "text-red-500"}`}>{displayPoints(e.points, { decimal: true })}</span><button type="button" onClick={() => handleDelete(e)} data-testid={`delete-entry-${e.id}`} className="p-2 rounded-md text-neutral-500 hover:text-red-500 hover:bg-white/5" aria-label="Delete entry"><Trash2 size={16} /></button></li>)}</ul></section>)}</div>}</>}
+    <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-1.5 bg-neutral-900 border border-white/10 rounded-full p-1 overflow-x-auto">{TABS.map((t) => { const Icon = t.icon; const active = mode === t.id; return <button key={t.id} type="button" onClick={() => setMode(t.id)} className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] uppercase tracking-widest font-semibold whitespace-nowrap ${active ? "bg-emerald-500 text-black" : "text-neutral-400 hover:text-white"}`}><Icon size={12} />{t.label}</button>; })}</div>{mode === "list" && <button type="button" onClick={() => downloadCSV(entries)} disabled={entries.length === 0} className="flex items-center gap-2 text-xs uppercase font-semibold tracking-widest border border-white/15 rounded-lg px-3 py-2 hover:bg-white/5 disabled:opacity-40"><Download size={14} />CSV</button>}</div>
+
+    {mode === "calendar" ? <CalendarView /> : mode === "actions" ? <>
+      <header><h1 className="font-display font-extrabold text-3xl uppercase tracking-tight">Log Actions</h1><p className="text-xs text-neutral-500 mt-1 uppercase tracking-widest">Active profile: {settings.activePriorityProfileId === "base" ? "Balanced" : (settings.priorityProfiles || []).find((p) => p.id === settings.activePriorityProfileId)?.name || "Custom"}</p></header>
+      <div className="relative"><Search size={14} className="absolute left-3 top-3 text-neutral-500"/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search actions, categories, subcategories..." className="w-full bg-neutral-900 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white"/></div>
+      {priorityActions.length > 0 && <section className="space-y-2"><div className="flex items-center justify-between"><h2 className="text-[10px] uppercase tracking-[0.18em] text-orange-400 font-semibold">Priority</h2><span className="text-[10px] text-neutral-500 uppercase tracking-widest">Profile-driven</span></div><div className="grid grid-cols-2 md:grid-cols-4 gap-2">{priorityActions.map((a) => <CompactActivityCard key={`priority-${a.id}`} action={a} />)}</div></section>}
+      <RecentlyUsedRow />
+      {categories.map((cat) => {
+        const catActions = filtered.filter((a) => a.category === cat.name);
+        if (catActions.length === 0) return null;
+        const subs = (cat.subcategories || []).filter((s) => s.active !== false);
+        return <section key={cat.name} className="space-y-3"><div><div className="flex items-center gap-2"><h2 className="font-display font-extrabold text-lg uppercase tracking-tight text-white">{cat.name}</h2>{cat.special && <span className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border border-amber-400/30 text-amber-300">Special</span>}</div><p className="text-[10px] uppercase tracking-widest text-neutral-500">{cat.description}</p></div>{subs.map((sub) => { const subActions = catActions.filter((a) => a.subcategory === sub.name); if (!subActions.length) return null; const pct = getSubcategoryPriorityPercent(settings, cat.name, sub.name); return <div key={sub.name} className="space-y-2"><div className="flex items-center justify-between"><p className="text-[10px] uppercase tracking-[0.18em] text-neutral-400 font-semibold">{sub.name}</p><span className={`text-[10px] font-semibold ${pct > 100 ? "text-orange-400" : pct < 100 ? "text-sky-400" : "text-neutral-500"}`}>{pct}%</span></div><div className="grid grid-cols-2 md:grid-cols-4 gap-2">{subActions.map((a) => <CompactActivityCard key={a.id} action={a} />)}</div></div>; })}</section>;
+      })}
+    </> : <><header><h1 className="font-display font-extrabold text-3xl uppercase tracking-tight">History</h1><p className="text-xs text-neutral-500 mt-1 uppercase tracking-widest">{entries.length} {entries.length === 1 ? "entry" : "entries"}</p></header>{entries.length === 0 ? <div className="border border-dashed border-white/10 rounded-xl p-10 flex flex-col items-center text-center"><Inbox size={28} className="text-neutral-600" /><p className="mt-3 font-display font-bold uppercase tracking-tight">No entries yet</p><p className="text-xs text-neutral-500 mt-1.5">Log your first action from this page.</p></div> : <div className="space-y-5">{grouped.map(([date, items]) => <section key={date}><div className="flex items-center justify-between mb-2"><h2 className="text-[10px] uppercase tracking-[0.18em] text-neutral-500 font-semibold">{formatDateShort(date)}</h2><span className="text-[10px] text-neutral-600 uppercase tracking-widest">{items.length} {items.length === 1 ? "entry" : "entries"}</span></div><ul className="space-y-1.5">{items.map((e) => <li key={e.id} className="bg-neutral-900 border border-white/10 rounded-lg px-3.5 py-3 flex items-center gap-3"><div className="flex-1 min-w-0"><p className="text-sm font-medium text-white truncate">{e.actionName}</p><p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">{e.time} · {e.category}{e.subcategory ? ` · ${e.subcategory}` : ""}{e.minutes ? ` · ${e.minutes}m` : ""}</p></div><span className={`font-display font-extrabold text-xl tracking-tighter ${e.points >= 0 ? "text-emerald-400" : "text-red-500"}`}>{displayPoints(e.points, { decimal: true })}</span><button type="button" onClick={() => handleDelete(e)} className="p-2 rounded-md text-neutral-500 hover:text-red-500 hover:bg-white/5"><Trash2 size={16} /></button></li>)}</ul></section>)}</div>}</>}
   </div>;
 }
