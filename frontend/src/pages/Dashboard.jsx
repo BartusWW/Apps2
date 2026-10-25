@@ -1,7 +1,6 @@
 import { useApp } from "../context/AppContext";
 import DashboardCarousel from "../components/DashboardCarousel";
 import HabitsSection from "../components/HabitsSection";
-import DailyPlanCard from "../components/DailyPlanCard";
 import PinnedRow from "../components/PinnedRow";
 import NextDeadlineWidget from "../components/NextDeadlineWidget";
 import PinnedGoalsSection from "../components/PinnedGoalsSection";
@@ -19,7 +18,6 @@ export default function Dashboard() {
         <p className="text-xs uppercase tracking-widest text-neutral-500 mt-1">Active profile: {profileName}</p>
       </header>
       <DashboardCarousel />
-      <DailyPlanCard />
       <NextDeadlineWidget />
       <PinnedGoalsSection />
       <section className="space-y-2">
