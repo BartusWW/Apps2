@@ -1,558 +1,67 @@
 import { useMemo, useState } from "react";
 import { useApp } from "../context/AppContext";
-import * as Icons from "lucide-react";
-import { ChevronLeft, ChevronRight, Plus, Trash2, X, Sunrise, Moon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, Search, Repeat2, Zap, Sunrise } from "lucide-react";
 import { toast } from "sonner";
-import {
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  formatMonth,
-  formatDateShort,
-  isInRange,
-  todayISO,
-  localISO,
-} from "../lib/dateUtils";
-import { habitCompletionForDate } from "../lib/habits";
-import { computePoints } from "../lib/scoring";
+import { startOfMonth, endOfMonth, startOfWeek, formatMonth, formatDateShort, todayISO, localISO } from "../lib/dateUtils";
+import { getSubcategoryPriorityPercent } from "../lib/priorityProfiles";
 
-function daysInMonthGrid(anchor) {
-  const mStart = startOfMonth(anchor);
-  const mEnd = endOfMonth(anchor);
-  const gridStart = startOfWeek(mStart);
-  const cells = [];
-  const cursor = new Date(gridStart);
-  // Always render 6 weeks for a stable layout
-  for (let i = 0; i < 42; i++) {
-    const date = new Date(cursor);
-    const iso = localISO(date);
-    cells.push({
-      date,
-      iso,
-      inMonth: date >= mStart && date < mEnd,
-    });
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return { cells, mStart, mEnd };
+const round1=n=>Math.round((Number(n)||0)*10)/10;
+function daysInMonthGrid(anchor){const mStart=startOfMonth(anchor),mEnd=endOfMonth(anchor),gridStart=startOfWeek(mStart),cells=[],cursor=new Date(gridStart);for(let i=0;i<42;i++){const date=new Date(cursor),iso=localISO(date);cells.push({date,iso,inMonth:date>=mStart&&date<mEnd});cursor.setDate(cursor.getDate()+1)}return cells}
+function dayOfWeek(iso){return new Date(`${iso}T12:00:00`).getDay()}
+function isoRange(from,to){const out=[],d=new Date(`${from}T12:00:00`),end=new Date(`${to}T12:00:00`);while(d<=end){out.push(localISO(d));d.setDate(d.getDate()+1)}return out}
+function entryMatchesAction(e,a){return e.actionId===a.id||(!e.actionId&&e.actionName===a.name)}
+
+export default function CalendarView(){
+ const {entries,actions,settings,dailyPlans,updateDailyPlan,logActivity,deleteEntry,updateSettings}=useApp();
+ const [anchor,setAnchor]=useState(()=>{const d=new Date();d.setDate(1);return d}),[selectedDate,setSelectedDate]=useState(todayISO());
+ const cells=useMemo(()=>daysInMonthGrid(anchor),[anchor]),today=todayISO(),positiveActions=useMemo(()=>actions.filter(a=>a.type==="positive"),[actions]);
+ const activeProfile=useMemo(()=>(settings.priorityProfiles||[]).find(p=>p.id===settings.activePriorityProfileId)||null,[settings.priorityProfiles,settings.activePriorityProfileId]);
+ const priorityPct=a=>activeProfile?getSubcategoryPriorityPercent(settings,a.category,a.subcategory):100;
+ const actionPoints=a=>round1((Number(a.points)||0)*priorityPct(a)/100);
+ const perDay=useMemo(()=>{const map={};for(const e of entries){if(!map[e.date])map[e.date]={net:0,earned:0,drain:0,count:0};const p=Number(e.points)||0;map[e.date].net+=p;if(p>=0)map[e.date].earned+=p;else map[e.date].drain+=Math.abs(p);map[e.date].count++}return map},[entries]);
+ const dayEntries=useMemo(()=>entries.filter(e=>e.date===selectedDate).sort((a,b)=>(a.time||"").localeCompare(b.time||"")),[entries,selectedDate]);
+ const stats=perDay[selectedDate]||{net:0,earned:0,drain:0,count:0},plan=dailyPlans[selectedDate]||{};
+ const recurringHabits=useMemo(()=>(settings.recurringTasks||[]).filter(r=>r.enabled!==false&&r.habit?.enabled),[settings.recurringTasks]);
+ const scheduledHabits=useMemo(()=>recurringHabits.filter(r=>(r.days||[]).includes(dayOfWeek(selectedDate))).map(r=>({rule:r,action:actions.find(a=>a.id===r.actionId)})).filter(x=>x.action),[recurringHabits,selectedDate,actions]);
+ const missedHabits=useMemo(()=>scheduledHabits.filter(({rule,action})=>!dayEntries.some(e=>e.recurringId===rule.id||entryMatchesAction(e,action))),[scheduledHabits,dayEntries]);
+ const planItems=Array.isArray(plan.items)?plan.items:[],planDone=planItems.filter(i=>i.status==="done").length;
+ const prevMonth=()=>{const d=new Date(anchor);d.setMonth(d.getMonth()-1);setAnchor(d)},nextMonth=()=>{const d=new Date(anchor);d.setMonth(d.getMonth()+1);setAnchor(d)};
+
+ const rebuildHabit=rule=>{
+  const action=actions.find(a=>a.id===rule.actionId);if(!action)return;
+  const matching=entries.filter(e=>entryMatchesAction(e,action)&&e.date<=today).map(e=>e.date);
+  if(!matching.length)return;
+  const start=[...matching].sort()[0],completed=new Set(matching),step=Number(rule.habit?.stepPct)||5,max=Number(rule.habit?.maxBonusPct)||50;
+  let bonus=0,streak=0;
+  for(const date of isoRange(start,today)){if(!(rule.days||[]).includes(dayOfWeek(date)))continue;if(completed.has(date)){bonus=Math.min(max,bonus+step);streak++}else{bonus=bonus>=max?max/2:0;streak=0}}
+  updateSettings({recurringTasks:(settings.recurringTasks||[]).map(r=>r.id===rule.id?{...r,habit:{...r.habit,bonusPct:round1(bonus),streak,lastRebuiltAt:new Date().toISOString()}}:r)});
+ };
+ const completeRetroHabit=({rule,action})=>{
+  const base=actionPoints(action),bonus=Number(rule.habit?.bonusPct)||0,pts=round1(base*(1+bonus/100)*(rule.frog?1.1:1));
+  logActivity({actionId:action.id,category:action.category,subcategory:action.subcategory,type:action.type||"positive",minutes:Number(action.minutes)||0,points:pts,actionName:action.name,date:selectedDate});
+  setTimeout(()=>rebuildHabit(rule),0);
+  toast(`${action.name} restored`,{description:`${selectedDate} · habit progression rebuilt`});
+ };
+
+ return <div className="space-y-5" data-testid="calendar-view">
+  <div className="flex items-center justify-between"><button onClick={prevMonth} className="p-2 rounded-lg text-neutral-400 hover:bg-white/5"><ChevronLeft size={18}/></button><div className="text-center"><p className="font-display font-extrabold uppercase tracking-tight text-lg">{formatMonth(anchor)}</p><p className="text-[9px] uppercase tracking-widest text-neutral-600">CBE Calendar</p></div><button onClick={nextMonth} className="p-2 rounded-lg text-neutral-400 hover:bg-white/5"><ChevronRight size={18}/></button></div>
+  <div className="grid grid-cols-7 gap-1 text-center">{["M","T","W","T","F","S","S"].map((d,i)=><div key={i} className="text-[10px] uppercase tracking-widest text-neutral-500 font-semibold">{d}</div>)}</div>
+  <div className="grid grid-cols-7 gap-1">{cells.map(c=>{const s=perDay[c.iso]||{},net=s.net||0,isToday=c.iso===today,isSelected=c.iso===selectedDate,p=(dailyPlans[c.iso]?.items||[]),done=p.filter(i=>i.status==="done").length,intensity=net<=0?0:net<=20?1:net<=50?2:net<=100?3:4,bg=["bg-neutral-900","theme-primary-soft","theme-secondary-soft","theme-primary-soft","theme-primary-soft"][intensity];return <button key={c.iso} onClick={()=>setSelectedDate(c.iso)} className={`relative aspect-square rounded-lg p-1 border text-left ${c.inMonth?"text-white":"text-neutral-700"} ${isSelected?"theme-primary-border ring-1 theme-primary-ring":"border-white/5"} ${bg}`}><span className={`text-[10px] font-semibold ${isToday?"theme-primary-text":""}`}>{c.date.getDate()}</span>{net!==0&&<span className={`absolute top-1 right-1 text-[8px] font-extrabold ${net>0?"theme-primary-text":"text-red-500"}`}>{net>0?"+":""}{round1(net)}</span>}{p.length>0&&<span className="absolute bottom-1 left-1 text-[8px] text-neutral-500">{done}/{p.length}</span>}</button>})}</div>
+  <div className="flex justify-between text-[9px] uppercase tracking-widest text-neutral-600"><span>Intensity · Net CBE</span><span>0 · 20 · 50 · 100+</span></div>
+  <DayDetail date={selectedDate} entries={dayEntries} stats={stats} actions={positiveActions} actionPoints={actionPoints} priorityPct={priorityPct} missedHabits={missedHabits} onRetroHabit={completeRetroHabit} onAdd={payload=>logActivity({...payload,date:selectedDate})} onDelete={deleteEntry} plan={plan} planDone={planDone} onUpdatePlan={patch=>updateDailyPlan(selectedDate,patch)}/>
+ </div>
 }
 
-function formatHM(mins) {
-  const m = Math.round(Math.max(0, mins));
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  if (h === 0) return `${r}m`;
-  if (r === 0) return `${h}h`;
-  return `${h}h ${r}m`;
+function DayDetail({date,entries,stats,actions,actionPoints,priorityPct,missedHabits,onRetroHabit,onAdd,onDelete,plan,planDone,onUpdatePlan}){
+ const [adding,setAdding]=useState(false),[search,setSearch]=useState(""),[actionId,setActionId]=useState(""),[minutes,setMinutes]=useState("");
+ const matches=useMemo(()=>{const q=search.trim().toLowerCase();return actions.filter(a=>!q||`${a.name} ${a.category} ${a.subcategory||""}`.toLowerCase().includes(q)).slice(0,12)},[actions,search]),selected=actions.find(a=>a.id===actionId);
+ const save=()=>{if(!selected)return;const pts=actionPoints(selected);onAdd({actionId:selected.id,category:selected.category,subcategory:selected.subcategory,type:selected.type||"positive",minutes:minutes===""?(Number(selected.minutes)||0):Number(minutes)||0,points:pts,actionName:selected.name});toast(`${selected.name} backlogged`,{description:`${date} · +${pts} CBE`});setAdding(false);setSearch("");setActionId("");setMinutes("")};
+ return <section className="space-y-4 pt-2">
+  <div className="bg-neutral-900 border theme-tertiary-border rounded-xl p-5"><div className="flex items-center justify-between gap-3"><div><p className="font-display font-extrabold uppercase">{formatDateShort(date)}</p><p className="text-[10px] uppercase tracking-widest text-neutral-500">{date} · {entries.length} entries</p></div><button onClick={()=>setAdding(v=>!v)} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest border theme-primary-border theme-primary-text rounded-lg px-3 py-2"><Plus size={12}/>{adding?"Close":"Backlog Action"}</button></div><div className="grid grid-cols-4 gap-2 mt-4 text-center"><Stat label="Net CBE" value={`${stats.net>0?"+":""}${round1(stats.net)}`} bad={stats.net<0}/><Stat label="Earned" value={`+${round1(stats.earned)}`}/><Stat label="Drain" value={`-${round1(stats.drain)}`} bad/><Stat label="Actions" value={stats.count}/></div>{Array.isArray(plan.items)&&plan.items.length>0&&<p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-3 text-center">Plan · <span className="theme-primary-text font-bold">{planDone}/{plan.items.length}</span> done</p>}</div>
+  {adding&&<div className="bg-neutral-900 border theme-primary-border rounded-xl p-4 space-y-3"><p className="text-[10px] uppercase tracking-widest theme-primary-text font-bold">Backlog completed action</p><div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search actions, categories…" className="w-full bg-neutral-950 border theme-tertiary-border rounded-lg pl-9 pr-3 py-2.5 text-sm text-white"/></div>{search.trim()&&<div className="max-h-44 overflow-y-auto rounded-lg border theme-tertiary-border bg-neutral-950 divide-y divide-white/5">{matches.map(a=><button key={a.id} onClick={()=>{setActionId(a.id);setSearch(a.name)}} className="w-full flex items-center gap-3 px-3 py-2.5 text-left"><div className="flex-1 min-w-0"><p className="text-xs text-white truncate">{a.name}</p><p className="text-[9px] text-neutral-600 truncate">{a.category}{a.subcategory?` · ${a.subcategory}`:""}</p></div><span className="theme-primary-text text-xs font-bold">+{actionPoints(a)}</span></button>)}</div>}<select value={actionId} onChange={e=>setActionId(e.target.value)} className="w-full bg-neutral-950 border theme-tertiary-border rounded-lg px-3 py-2.5 text-sm text-white"><option value="">Or choose an action…</option>{actions.map(a=><option key={a.id} value={a.id}>{a.name} · +{actionPoints(a)}</option>)}</select>{selected&&<div className="rounded-lg border theme-tertiary-border bg-neutral-950 p-3"><div className="flex justify-between gap-3"><div><p className="text-sm font-semibold text-white">{selected.name}</p><p className="text-[9px] uppercase tracking-widest text-neutral-600 mt-1">{selected.category}{selected.subcategory?` · ${selected.subcategory}`:""} · Priority {priorityPct(selected)}%</p></div><span className="font-display text-xl font-extrabold theme-primary-text">+{actionPoints(selected)}</span></div><label className="block text-[9px] uppercase tracking-widest text-neutral-500 mt-3">Minutes · optional metadata<input type="number" min="0" value={minutes} onChange={e=>setMinutes(e.target.value)} placeholder={String(selected.minutes||0)} className="mt-1 w-full bg-neutral-900 border theme-tertiary-border rounded-lg px-3 py-2 text-sm text-white"/></label></div>}<button onClick={save} disabled={!selected} className="w-full theme-primary-bg rounded-lg py-2.5 text-xs uppercase tracking-widest font-bold text-white disabled:opacity-30">Save completed action</button></div>}
+  {missedHabits.length>0&&<section className="bg-neutral-900 border theme-primary-border rounded-xl p-4 space-y-2"><div className="flex items-center gap-2 mb-3"><Repeat2 size={14} className="theme-primary-text"/><div><p className="text-[10px] uppercase tracking-[.18em] theme-primary-text font-extrabold">Missed Habits</p><p className="text-[9px] text-neutral-600">Scheduled here but no completion was logged.</p></div></div>{missedHabits.map(x=><div key={x.rule.id} className="rounded-lg border theme-tertiary-border bg-neutral-950 p-3 flex items-center gap-3"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white truncate">{x.action.name}</p><p className="text-[9px] uppercase tracking-widest text-neutral-600 mt-1">HABIT · current bonus +{x.rule.habit?.bonusPct||0}%{x.rule.habit?.amount?` · ${x.rule.habit.amount} ${x.rule.habit.unit}`:""}</p></div><button onClick={()=>onRetroHabit(x)} className="shrink-0 px-3 py-2 rounded-lg theme-primary-bg text-white text-[9px] uppercase tracking-widest font-bold">Complete retroactively</button></div>)}</section>}
+  {entries.length>0&&<div className="space-y-1.5">{entries.map(e=><div key={e.id} className="bg-neutral-900 border theme-tertiary-border rounded-lg px-3.5 py-3 flex items-center gap-3"><span className={`h-8 w-8 rounded-md flex items-center justify-center ${e.points>=0?"theme-primary-soft theme-primary-text":"bg-red-500/10 text-red-400"}`}>{e.recurringId?<Repeat2 size={14}/>:<Zap size={14}/>}</span><div className="flex-1 min-w-0"><p className="text-sm text-white truncate">{e.actionName||e.category}</p><p className="text-[10px] text-neutral-500 truncate">{e.time} · {e.category}{e.subcategory?` / ${e.subcategory}`:""}{e.minutes?` · ${e.minutes}m`:""}</p></div><span className={`font-display font-extrabold ${e.points>=0?"theme-primary-text":"text-red-500"}`}>{e.points>0?"+":""}{round1(e.points)}</span><button onClick={()=>onDelete(e.id)} className="p-1.5 text-neutral-600 hover:text-red-400"><Trash2 size={13}/></button></div>)}</div>}
+  <div className="bg-neutral-900 border theme-tertiary-border rounded-xl p-4"><div className="flex items-center gap-2 mb-2"><Sunrise size={12} className="theme-primary-text"/><label className="text-[10px] uppercase tracking-widest text-neutral-500 font-semibold">Day Focus</label></div><input value={plan.focus||""} onChange={e=>onUpdatePlan({focus:e.target.value})} placeholder="Most important outcome for this day…" className="w-full bg-neutral-950 border theme-tertiary-border rounded-lg px-3 py-2 text-sm text-white"/></div>
+ </section>
 }
-
-export default function CalendarView() {
-  const {
-    entries,
-    habits,
-    settings,
-    dailyPlans,
-    updateDailyPlan,
-    addEntryAt,
-    updateEntry,
-    deleteEntry,
-  } = useApp();
-
-  const [anchor, setAnchor] = useState(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d;
-  });
-  const [selectedDate, setSelectedDate] = useState(todayISO());
-
-  const { cells } = useMemo(() => daysInMonthGrid(anchor), [anchor]);
-
-  // Per-day stats (only for visible cells)
-  const perDay = useMemo(() => {
-    const map = {};
-    for (const e of entries) {
-      if (!map[e.date]) map[e.date] = { minutes: 0, points: 0 };
-      if (e.type === "positive") map[e.date].minutes += e.minutes || 0;
-      map[e.date].points += e.points || 0;
-    }
-    return map;
-  }, [entries]);
-
-  const today = todayISO();
-
-  const dayEntries = useMemo(() => {
-    return entries
-      .filter((e) => e.date === selectedDate)
-      .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-  }, [entries, selectedDate]);
-
-  const dayStats = useMemo(() => {
-    let positive = 0;
-    let negative = 0;
-    let minutes = 0;
-    const cats = {};
-    for (const e of dayEntries) {
-      if (e.type === "positive") {
-        positive += e.points || 0;
-        minutes += e.minutes || 0;
-      } else {
-        negative += Math.abs(e.points || 0);
-      }
-      if (!cats[e.category]) cats[e.category] = { minutes: 0, points: 0 };
-      cats[e.category].minutes += e.minutes || 0;
-      cats[e.category].points += e.points || 0;
-    }
-    return { positive, negative, net: positive - negative, minutes, cats };
-  }, [dayEntries]);
-
-  const dayHabits = useMemo(
-    () => habitCompletionForDate(habits, entries, selectedDate),
-    [habits, entries, selectedDate],
-  );
-
-  const prevMonth = () => {
-    const d = new Date(anchor);
-    d.setMonth(d.getMonth() - 1);
-    setAnchor(d);
-  };
-  const nextMonth = () => {
-    const d = new Date(anchor);
-    d.setMonth(d.getMonth() + 1);
-    setAnchor(d);
-  };
-
-  const plan = dailyPlans[selectedDate] || {};
-
-  return (
-    <div className="space-y-5" data-testid="calendar-view">
-      {/* Month nav */}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={prevMonth}
-          data-testid="calendar-prev-month"
-          className="p-2 rounded-lg text-neutral-400 hover:bg-white/5 hover:text-white"
-          aria-label="Previous month"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <p className="font-display font-extrabold uppercase tracking-tight text-lg" data-testid="calendar-month-label">
-          {formatMonth(anchor)}
-        </p>
-        <button
-          type="button"
-          onClick={nextMonth}
-          data-testid="calendar-next-month"
-          className="p-2 rounded-lg text-neutral-400 hover:bg-white/5 hover:text-white"
-          aria-label="Next month"
-        >
-          <ChevronRight size={18} />
-        </button>
-      </div>
-
-      {/* Day headers */}
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-          <div key={i} className="text-[10px] uppercase tracking-widest text-neutral-500 font-semibold">
-            {d}
-          </div>
-        ))}
-      </div>
-
-      {/* Grid */}
-      <div className="grid grid-cols-7 gap-1" data-testid="calendar-grid">
-        {cells.map((c) => {
-          const stats = perDay[c.iso];
-          const minutes = stats?.minutes || 0;
-          const net = stats?.points || 0;
-          const isToday = c.iso === today;
-          const isSelected = c.iso === selectedDate;
-          const habit = habitCompletionForDate(habits, entries, c.iso);
-          const intensity =
-            minutes <= 0 ? 0 : minutes <= 30 ? 1 : minutes <= 90 ? 2 : minutes <= 180 ? 3 : 4;
-          const bgIntensity = [
-            "bg-neutral-900",
-            "bg-emerald-500/15",
-            "bg-emerald-500/35",
-            "bg-emerald-500/60",
-            "bg-emerald-500/90",
-          ][intensity];
-
-          return (
-            <button
-              key={c.iso}
-              type="button"
-              onClick={() => setSelectedDate(c.iso)}
-              data-testid={`calendar-day-${c.iso}`}
-              className={`relative aspect-square rounded-lg p-1 border text-left transition-colors ${
-                c.inMonth ? "text-white" : "text-neutral-700"
-              } ${
-                isSelected
-                  ? "border-emerald-400 ring-1 ring-emerald-400/50"
-                  : "border-white/5 hover:border-white/15"
-              } ${bgIntensity}`}
-            >
-              <span
-                className={`text-[10px] font-semibold ${
-                  isToday ? "text-emerald-400" : ""
-                }`}
-              >
-                {c.date.getDate()}
-              </span>
-              {minutes > 0 && (
-                <span className="absolute top-1 right-1 text-[8px] uppercase tracking-widest text-emerald-300 font-semibold">
-                  {Math.round(minutes / 60 * 10) / 10}h
-                </span>
-              )}
-              {net !== 0 && (
-                <span
-                  className={`absolute bottom-1 right-1 text-[8px] font-extrabold tracking-tighter ${
-                    net > 0 ? "text-emerald-400" : "text-red-500"
-                  }`}
-                >
-                  {net > 0 ? "+" : ""}
-                  {Math.round(net)}
-                </span>
-              )}
-              {habit.total > 0 && (
-                <div className="absolute bottom-1 left-1 flex gap-[2px]" aria-hidden>
-                  {Array.from({ length: habit.total }).map((_, i) => (
-                    <span
-                      key={i}
-                      className={`h-[3px] w-[3px] rounded-full ${
-                        i < habit.completed ? "bg-emerald-400" : "bg-neutral-600"
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-neutral-500">
-        <span>0 / ≤30 / ≤90 / ≤180 / 180+ min</span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-sm bg-neutral-900 border border-white/5" />
-          <span className="h-2 w-2 rounded-sm bg-emerald-500/15" />
-          <span className="h-2 w-2 rounded-sm bg-emerald-500/35" />
-          <span className="h-2 w-2 rounded-sm bg-emerald-500/60" />
-          <span className="h-2 w-2 rounded-sm bg-emerald-500/90" />
-        </span>
-      </div>
-
-      {/* Selected day detail */}
-      <DayDetail
-        date={selectedDate}
-        entries={dayEntries}
-        stats={dayStats}
-        dayHabits={dayHabits}
-        plan={plan}
-        categories={settings.categories || []}
-        onAddEntry={(payload) => addEntryAt({ ...payload, date: selectedDate })}
-        onDeleteEntry={(id) => deleteEntry(id)}
-        onUpdateEntry={(id, patch) => updateEntry(id, patch)}
-        onUpdatePlan={(patch) => updateDailyPlan(selectedDate, patch)}
-      />
-    </div>
-  );
-}
-
-function DayDetail({
-  date,
-  entries,
-  stats,
-  dayHabits,
-  plan,
-  categories,
-  onAddEntry,
-  onDeleteEntry,
-  onUpdateEntry,
-  onUpdatePlan,
-}) {
-  const [adding, setAdding] = useState(false);
-  const [addCategory, setAddCategory] = useState(categories[0]?.name || "Reading");
-  const [addType, setAddType] = useState(categories[0]?.type || "positive");
-  const [addMinutes, setAddMinutes] = useState(30);
-
-  const handleAdd = () => {
-    const mins = Number(addMinutes) || 0;
-    if (mins <= 0) {
-      toast("Enter a positive number of minutes", { className: "!bg-neutral-900 !border-red-500/30 !text-white" });
-      return;
-    }
-    const cat = categories.find((c) => c.name === addCategory);
-    onAddEntry({
-      category: addCategory,
-      type: cat?.type || addType,
-      minutes: mins,
-      icon: cat?.icon,
-      actionName: `${mins}m ${addCategory}`,
-    });
-    toast(`${mins}m ${addCategory} added to ${date}`, {
-      className: "!bg-neutral-900 !border-emerald-500/30 !text-white",
-    });
-    setAdding(false);
-    setAddMinutes(30);
-  };
-
-  return (
-    <section className="space-y-4 pt-2" data-testid="day-detail">
-      <div className="bg-neutral-900 border border-white/10 rounded-xl p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-display font-extrabold uppercase tracking-tight text-base">
-              {formatDateShort(date)}
-            </p>
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
-              {date} · {entries.length} {entries.length === 1 ? "entry" : "entries"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setAdding((s) => !s)}
-            data-testid="day-add-entry-btn"
-            className="flex items-center gap-1.5 text-[10px] uppercase font-semibold tracking-widest border border-emerald-500/40 text-emerald-400 rounded-lg px-3 py-1.5 hover:bg-emerald-500/10"
-          >
-            <Plus size={12} />
-            {adding ? "Close" : "Add Entry"}
-          </button>
-        </div>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-4 gap-2 mt-4 text-center">
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Dev</p>
-            <p className="font-display font-extrabold text-lg tracking-tighter text-emerald-400">
-              {formatHM(stats.minutes)}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Net</p>
-            <p className={`font-display font-extrabold text-lg tracking-tighter ${
-              stats.net < 0 ? "text-red-500" : "text-emerald-400"
-            }`}>
-              {stats.net > 0 ? "+" : ""}{Math.round(stats.net)}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Build</p>
-            <p className="font-display font-extrabold text-lg tracking-tighter text-emerald-400">
-              +{Math.round(stats.positive)}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Drain</p>
-            <p className="font-display font-extrabold text-lg tracking-tighter text-red-500">
-              -{Math.round(stats.negative)}
-            </p>
-          </div>
-        </div>
-
-        {dayHabits.total > 0 && (
-          <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-3 text-center">
-            Habits: <span className="text-emerald-400 font-semibold">{dayHabits.completed}/{dayHabits.total}</span> completed
-          </p>
-        )}
-      </div>
-
-      {/* Add entry form */}
-      {adding && (
-        <div className="bg-neutral-900 border border-emerald-500/30 rounded-xl p-4 space-y-3" data-testid="day-add-entry-form">
-          <p className="text-[10px] uppercase tracking-widest text-neutral-500 font-semibold">
-            Add to {date}
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              value={addCategory}
-              onChange={(e) => {
-                const cat = categories.find((c) => c.name === e.target.value);
-                setAddCategory(e.target.value);
-                if (cat) setAddType(cat.type);
-              }}
-              data-testid="day-add-category"
-              className="bg-neutral-950 border border-white/10 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-            >
-              {categories.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min="1"
-              value={addMinutes}
-              onChange={(e) => setAddMinutes(e.target.value)}
-              data-testid="day-add-minutes"
-              placeholder="minutes"
-              className="bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-            />
-          </div>
-          <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-neutral-500">
-            <span>
-              ≈ {(() => {
-                const cat = categories.find((c) => c.name === addCategory);
-                const t = cat?.type || addType;
-                const p = computePoints(addMinutes, t);
-                return `${p > 0 ? "+" : ""}${p} pts`;
-              })()}
-            </span>
-            <button
-              type="button"
-              onClick={handleAdd}
-              data-testid="day-add-submit"
-              className="px-3 py-1.5 rounded-lg bg-emerald-500 text-black font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-400"
-            >
-              Save Entry
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Entries list */}
-      {entries.length > 0 && (
-        <div className="space-y-1.5" data-testid="day-entries-list">
-          {entries.map((e) => (
-            <DayEntryRow
-              key={e.id}
-              entry={e}
-              onDelete={() => onDeleteEntry(e.id)}
-              onUpdate={(patch) => onUpdateEntry(e.id, patch)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Daily Plan inline */}
-      <div className="bg-neutral-900 border border-white/10 rounded-xl p-4 space-y-3" data-testid="day-plan">
-        <div className="flex items-center gap-1.5">
-          <Sunrise size={12} className="text-amber-400" />
-          <label className="text-[10px] uppercase tracking-widest text-neutral-500 font-semibold">
-            Morning Focus
-          </label>
-        </div>
-        <input
-          type="text"
-          value={plan.focus || ""}
-          onChange={(e) => onUpdatePlan({ focus: e.target.value })}
-          placeholder="Most important task for this day…"
-          data-testid="day-plan-focus"
-          className="w-full bg-neutral-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-emerald-500/50"
-        />
-        <div className="flex items-center gap-2 pt-1">
-          <Moon size={12} className="text-sky-400" />
-          <label className="text-[10px] uppercase tracking-widest text-neutral-500 font-semibold">
-            Completed?
-          </label>
-          <div className="flex items-center gap-1.5 ml-auto">
-            <button
-              type="button"
-              onClick={() => onUpdatePlan({ completed: plan.completed === true ? null : true })}
-              data-testid="day-plan-yes"
-              className={`px-3 py-1 rounded-lg border text-[10px] uppercase tracking-widest font-semibold ${
-                plan.completed === true ? "bg-emerald-500 text-black border-emerald-500" : "border-white/15 text-neutral-300"
-              }`}
-            >
-              Yes
-            </button>
-            <button
-              type="button"
-              onClick={() => onUpdatePlan({ completed: plan.completed === false ? null : false })}
-              data-testid="day-plan-no"
-              className={`px-3 py-1 rounded-lg border text-[10px] uppercase tracking-widest font-semibold ${
-                plan.completed === false ? "bg-red-500 text-black border-red-500" : "border-white/15 text-neutral-300"
-              }`}
-            >
-              No
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function DayEntryRow({ entry, onDelete, onUpdate }) {
-  const [editing, setEditing] = useState(false);
-  const [mins, setMins] = useState(entry.minutes);
-  const Icon = Icons[entry.icon] || Icons.Zap;
-
-  const save = () => {
-    onUpdate({ minutes: Number(mins) || 0 });
-    setEditing(false);
-  };
-
-  return (
-    <div
-      className="bg-neutral-900 border border-white/10 rounded-lg px-3.5 py-3 flex items-center gap-3"
-      data-testid={`day-entry-${entry.id}`}
-    >
-      <span
-        className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${
-          entry.type === "positive" ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"
-        }`}
-      >
-        <Icon size={14} strokeWidth={2.5} />
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white truncate">{entry.category}</p>
-        {editing ? (
-          <div className="flex items-center gap-1.5 mt-1">
-            <input
-              type="number"
-              min="0"
-              value={mins}
-              onChange={(e) => setMins(e.target.value)}
-              data-testid={`edit-mins-${entry.id}`}
-              className="w-16 bg-neutral-950 border border-white/10 rounded px-2 py-0.5 text-xs text-white"
-            />
-            <button
-              type="button"
-              onClick={save}
-              data-testid={`save-edit-${entry.id}`}
-              className="text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded bg-emerald-500 text-black"
-            >
-              Save
-            </button>
-            <button type="button" onClick={() => setEditing(false)} className="text-neutral-500">
-              <X size={12} />
-            </button>
-          </div>
-        ) : (
-          <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
-            {entry.time} · {entry.minutes}m
-          </p>
-        )}
-      </div>
-      <span
-        className={`font-display font-extrabold text-base tracking-tighter ${
-          entry.points >= 0 ? "text-emerald-400" : "text-red-500"
-        }`}
-      >
-        {entry.points > 0 ? `+${Math.round(entry.points)}` : Math.round(entry.points)}
-      </span>
-      {!editing && (
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          data-testid={`edit-entry-${entry.id}`}
-          className="p-1.5 rounded-md text-neutral-500 hover:text-emerald-400 hover:bg-white/5"
-          aria-label="Edit"
-        >
-          <Icons.Pencil size={13} />
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={onDelete}
-        data-testid={`delete-day-entry-${entry.id}`}
-        className="p-1.5 rounded-md text-neutral-500 hover:text-red-500 hover:bg-white/5"
-        aria-label="Delete"
-      >
-        <Trash2 size={13} />
-      </button>
-    </div>
-  );
-}
+function Stat({label,value,bad}){return <div className="bg-neutral-950 border theme-tertiary-border rounded-lg py-2 px-1"><p className="text-[8px] uppercase tracking-widest text-neutral-600">{label}</p><p className={`font-display font-extrabold text-lg ${bad?"text-red-500":"theme-primary-text"}`}>{value}</p></div>}
