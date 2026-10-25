@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
-import { Target, Bell, BellOff, Check, PieChart as PieChartIcon, Download, SlidersHorizontal, ListChecks, CalendarRange, Palette, ChevronDown, Database, Brain, Flag, Repeat2, Layers3 } from "lucide-react";
+import { Target, Bell, BellOff, Check, PieChart as PieChartIcon, Download, SlidersHorizontal, ListChecks, CalendarRange, Palette, ChevronDown, Database, Brain, Flag, Repeat2, Layers3, Pin } from "lucide-react";
 import { onInstallAvailability, promptInstall } from "../lib/pwa";
 import HabitsEditor from "../components/settings/HabitsEditor";
 import DataManagement from "../components/settings/DataManagement";
@@ -19,15 +19,25 @@ const SETTINGS_TABS = [
   { id: "appearance", label: "Theme", icon: Palette },
   { id: "notifications", label: "Notifications", icon: Bell },
 ];
+const PINNED_SECTIONS_KEY = "cbe.ui.pinnedSections.v1";
+const readPinnedSections = () => {
+  if (typeof window === "undefined") return [];
+  try { const value = JSON.parse(localStorage.getItem(PINNED_SECTIONS_KEY) || "[]"); return Array.isArray(value) ? value : []; }
+  catch { return []; }
+};
 
 export default function Settings() {
   const { actions, settings, updateSettings } = useApp();
   const [tab, setTab] = useState("general");
   const [openSection, setOpenSection] = useState(null);
+  const [pinnedSections, setPinnedSections] = useState(readPinnedSections);
   const [goalHours, setGoalHours] = useState(String(((settings.weeklyGoalMinutes || 1200) / 60).toFixed(1).replace(/\.0$/, "")));
 
+  useEffect(() => { localStorage.setItem(PINNED_SECTIONS_KEY, JSON.stringify(pinnedSections)); }, [pinnedSections]);
   const selectTab = (id) => { setTab(id); setOpenSection(null); };
   const toggleSection = (id) => setOpenSection((current) => current === id ? null : id);
+  const togglePin = (id) => setPinnedSections((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  const sectionProps = (id) => ({ id, open: openSection === id || pinnedSections.includes(id), pinned: pinnedSections.includes(id), onToggle: toggleSection, onPin: togglePin });
 
   const saveGoal = () => {
     const hrs = Number(goalHours);
@@ -48,50 +58,40 @@ export default function Settings() {
 
   return <div className="space-y-5" data-testid="settings-page">
     <header><h1 className="font-display font-extrabold text-3xl uppercase tracking-tight">Settings</h1><p className="text-xs uppercase tracking-widest text-neutral-500 mt-1">Configure how CBE works for you</p></header>
-
     <SubNav items={SETTINGS_TABS} active={tab} onChange={selectTab} />
 
-    {tab==="general"&&<section className="space-y-3" data-testid="settings-general-tab">
-      <SectionIntro title="General" text="Device and CBE data." />
-      <Collapsible id="install" title="Install on Device" icon={Download} open={openSection==="install"} onToggle={toggleSection}><InstallAppCard /></Collapsible>
-      <Collapsible id="data" title="Data Management" icon={Database} open={openSection==="data"} onToggle={toggleSection}><DataManagement /></Collapsible>
+    {tab==="general"&&<section className="space-y-3" data-testid="settings-general-tab"><SectionIntro title="General" text="Device and CBE data." />
+      <Collapsible {...sectionProps("install")} title="Install on Device" icon={Download}><InstallAppCard /></Collapsible>
+      <Collapsible {...sectionProps("data")} title="Data Management" icon={Database}><DataManagement /></Collapsible>
     </section>}
 
-    {tab==="cbe"&&<section className="space-y-3" data-testid="settings-cbe-tab">
-      <SectionIntro title="CBE System" text="Actions, structure and scoring priorities." />
-      <Collapsible id="actions" title="Actions" icon={ListChecks} meta={`${actions.length}`} open={openSection==="actions"} onToggle={toggleSection}><ActionsEditor /></Collapsible>
-      <Collapsible id="categories" title="Categories & Subcategories" icon={Layers3} meta={`${(settings.categories||[]).length}`} open={openSection==="categories"} onToggle={toggleSection}><CategoriesEditor /></Collapsible>
-      <Collapsible id="profiles" title="Priority Profiles" icon={SlidersHorizontal} open={openSection==="profiles"} onToggle={toggleSection}><PriorityProfilesEditor /></Collapsible>
-      <Collapsible id="allocation" title="Allocation Targets" icon={PieChartIcon} open={openSection==="allocation"} onToggle={toggleSection}><AllocationTargetsEditor actions={actions} targets={settings.allocationTargets||{}} onChange={next=>updateSettings({allocationTargets:next})}/></Collapsible>
+    {tab==="cbe"&&<section className="space-y-3" data-testid="settings-cbe-tab"><SectionIntro title="CBE System" text="Actions, structure and scoring priorities." />
+      <Collapsible {...sectionProps("actions")} title="Actions" icon={ListChecks} meta={`${actions.length}`}><ActionsEditor /></Collapsible>
+      <Collapsible {...sectionProps("categories")} title="Categories & Subcategories" icon={Layers3} meta={`${(settings.categories||[]).length}`}><CategoriesEditor /></Collapsible>
+      <Collapsible {...sectionProps("profiles")} title="Priority Profiles" icon={SlidersHorizontal}><PriorityProfilesEditor /></Collapsible>
+      <Collapsible {...sectionProps("allocation")} title="Allocation Targets" icon={PieChartIcon}><AllocationTargetsEditor actions={actions} targets={settings.allocationTargets||{}} onChange={next=>updateSettings({allocationTargets:next})}/></Collapsible>
     </section>}
 
-    {tab==="planning"&&<section className="space-y-3" data-testid="settings-planning-tab">
-      <SectionIntro title="Planning" text="Goals, habits and targets that steer execution." />
-      <Collapsible id="weekly-goal" title="Weekly Development Goal" icon={Target} open={openSection==="weekly-goal"} onToggle={toggleSection}>
-        <div className="space-y-3"><p className="text-xs text-neutral-400">Target hours for the Time view progress bar.</p><div className="flex items-end gap-2"><div className="flex-1"><label className="text-[10px] uppercase tracking-widest text-neutral-500">Hours per week</label><input type="number" min="1" step="0.5" value={goalHours} onChange={e=>setGoalHours(e.target.value)} className="w-full mt-1 bg-neutral-950 border theme-tertiary-border rounded-lg px-3 py-2 text-sm text-white"/></div><button type="button" onClick={saveGoal} className="text-xs uppercase tracking-widest font-semibold px-3.5 py-2 rounded-lg theme-primary-bg text-white">Save</button></div><p className="text-[10px] uppercase tracking-widest text-neutral-500">Current: {(settings.weeklyGoalMinutes/60).toFixed(1)}h / week</p></div>
-      </Collapsible>
-      <Collapsible id="goals" title="Goals" icon={Flag} open={openSection==="goals"} onToggle={toggleSection}><GoalsEditor /></Collapsible>
-      <Collapsible id="habits" title="Habits" icon={Repeat2} open={openSection==="habits"} onToggle={toggleSection}><HabitsEditor /></Collapsible>
-      <Collapsible id="brain-dump" title="Brain Dump" icon={Brain} open={openSection==="brain-dump"} onToggle={toggleSection}><BrainDumpManager /></Collapsible>
+    {tab==="planning"&&<section className="space-y-3" data-testid="settings-planning-tab"><SectionIntro title="Planning" text="Goals, habits and targets that steer execution." />
+      <Collapsible {...sectionProps("weekly-goal")} title="Weekly Development Goal" icon={Target}><div className="space-y-3"><p className="text-xs text-neutral-400">Target hours for the Time view progress bar.</p><div className="flex items-end gap-2"><div className="flex-1"><label className="text-[10px] uppercase tracking-widest text-neutral-500">Hours per week</label><input type="number" min="1" step="0.5" value={goalHours} onChange={e=>setGoalHours(e.target.value)} className="w-full mt-1 bg-neutral-950 border theme-tertiary-border rounded-lg px-3 py-2 text-sm text-white"/></div><button type="button" onClick={saveGoal} className="text-xs uppercase tracking-widest font-semibold px-3.5 py-2 rounded-lg theme-primary-bg text-white">Save</button></div><p className="text-[10px] uppercase tracking-widest text-neutral-500">Current: {(settings.weeklyGoalMinutes/60).toFixed(1)}h / week</p></div></Collapsible>
+      <Collapsible {...sectionProps("goals")} title="Goals" icon={Flag}><GoalsEditor /></Collapsible>
+      <Collapsible {...sectionProps("habits")} title="Habits" icon={Repeat2}><HabitsEditor /></Collapsible>
+      <Collapsible {...sectionProps("brain-dump")} title="Brain Dump" icon={Brain}><BrainDumpManager /></Collapsible>
     </section>}
 
-    {tab==="appearance"&&<section className="space-y-3" data-testid="settings-appearance-tab">
-      <SectionIntro title="Appearance" text="Theme, palette, surfaces and background treatment." />
-      <Collapsible id="appearance-editor" title="Theme & Appearance" icon={Palette} open={openSection==="appearance-editor"} onToggle={toggleSection}><AppearanceEditor /></Collapsible>
+    {tab==="appearance"&&<section className="space-y-3" data-testid="settings-appearance-tab"><SectionIntro title="Appearance" text="Theme, palette, surfaces and background treatment." />
+      <Collapsible {...sectionProps("appearance-editor")} title="Theme & Appearance" icon={Palette}><AppearanceEditor /></Collapsible>
     </section>}
 
-    {tab==="notifications"&&<section className="space-y-3" data-testid="settings-notifications-tab">
-      <SectionIntro title="Notifications" text="Reminders and future execution alerts." />
-      <Collapsible id="daily-reminder" title="Daily Reminder" icon={settings.reminderEnabled?Bell:BellOff} meta={settings.reminderEnabled?"ON":"OFF"} open={openSection==="daily-reminder"} onToggle={toggleSection}>
-        <div className="space-y-3"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-white">Daily Reminder</p><button type="button" onClick={toggleReminder} className={`text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-full border ${settings.reminderEnabled?"theme-primary-bg theme-primary-border text-white":"theme-tertiary-border text-neutral-300"}`}>{settings.reminderEnabled?"On":"Off"}</button></div><p className="text-xs text-neutral-400">Current lightweight reminder. Full Open Day, FROG and Close Day notifications will be added here.<span className="block mt-1 text-neutral-500">Currently fires only while CBE is open.</span></p><div><label className="text-[10px] uppercase tracking-widest text-neutral-500">Reminder time</label><input type="time" value={settings.reminderTime} onChange={e=>updateSettings({reminderTime:e.target.value,lastReminderDate:null})} className="w-full mt-1 bg-neutral-950 border theme-tertiary-border rounded-lg px-3 py-2 text-sm text-white"/></div></div>
-      </Collapsible>
+    {tab==="notifications"&&<section className="space-y-3" data-testid="settings-notifications-tab"><SectionIntro title="Notifications" text="Reminders and future execution alerts." />
+      <Collapsible {...sectionProps("daily-reminder")} title="Daily Reminder" icon={settings.reminderEnabled?Bell:BellOff} meta={settings.reminderEnabled?"ON":"OFF"}><div className="space-y-3"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-white">Daily Reminder</p><button type="button" onClick={toggleReminder} className={`text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-full border ${settings.reminderEnabled?"theme-primary-bg theme-primary-border text-white":"theme-tertiary-border text-neutral-300"}`}>{settings.reminderEnabled?"On":"Off"}</button></div><p className="text-xs text-neutral-400">Current lightweight reminder. Full Open Day, FROG and Close Day notifications will be added here.<span className="block mt-1 text-neutral-500">Currently fires only while CBE is open.</span></p><div><label className="text-[10px] uppercase tracking-widest text-neutral-500">Reminder time</label><input type="time" value={settings.reminderTime} onChange={e=>updateSettings({reminderTime:e.target.value,lastReminderDate:null})} className="w-full mt-1 bg-neutral-950 border theme-tertiary-border rounded-lg px-3 py-2 text-sm text-white"/></div></div></Collapsible>
     </section>}
   </div>;
 }
 
 export function SubNav({items,active,onChange}) { return <nav className="grid grid-cols-4 gap-1 bg-neutral-900 border theme-tertiary-border rounded-2xl p-1" aria-label="Section navigation">{items.map(({id,label,icon:Icon})=><button key={id} type="button" onClick={()=>onChange(id)} className={`min-w-0 flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 text-[9px] uppercase tracking-wider font-semibold transition-colors ${active===id?"theme-primary-bg text-white":"text-neutral-400 hover:text-white hover:bg-white/5"}`}><Icon size={13}/><span className="w-full truncate text-center">{label}</span></button>)}</nav>; }
 
-function Collapsible({id,title,icon:Icon,meta,open,onToggle,children}) { return <div className={`bg-neutral-900 border rounded-xl overflow-hidden transition-colors ${open?"theme-primary-border":"theme-tertiary-border"}`}><button type="button" onClick={()=>onToggle(id)} className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03]" aria-expanded={open}><Icon size={15} className={open?"theme-primary-text":"text-neutral-500"}/><span className="flex-1 text-sm font-semibold text-white">{title}</span>{meta&&<span className="text-[10px] uppercase tracking-widest text-neutral-500">{meta}</span>}<ChevronDown size={15} className={`text-neutral-500 transition-transform ${open?"rotate-180":""}`}/></button>{open&&<div className="border-t theme-tertiary-border p-4">{children}</div>}</div>; }
+function Collapsible({id,title,icon:Icon,meta,open,pinned,onToggle,onPin,children}) { return <div className={`bg-neutral-900 border rounded-xl overflow-hidden transition-colors ${open?"theme-primary-border":"theme-tertiary-border"}`}><div className="flex items-stretch"><button type="button" onClick={()=>onToggle(id)} className="min-w-0 flex-1 flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03]" aria-expanded={open}><Icon size={15} className={open?"theme-primary-text":"text-neutral-500"}/><span className="flex-1 truncate text-sm font-semibold text-white">{title}</span>{meta&&<span className="text-[10px] uppercase tracking-widest text-neutral-500">{meta}</span>}<ChevronDown size={15} className={`shrink-0 text-neutral-500 transition-transform ${open?"rotate-180":""}`}/></button><button type="button" onClick={()=>onPin(id)} className={`w-11 shrink-0 flex items-center justify-center border-l theme-tertiary-border transition-colors ${pinned?"theme-primary-text bg-white/[0.04]":"text-neutral-600 hover:text-neutral-300 hover:bg-white/[0.03]"}`} aria-label={pinned?`Unpin ${title}`:`Keep ${title} expanded`} aria-pressed={pinned} title={pinned?"Unpin section":"Keep expanded"}><Pin size={14} className={pinned?"fill-current":""}/></button></div>{open&&<div className="border-t theme-tertiary-border p-4">{children}</div>}</div>; }
 
 function SectionIntro({title,text}) { return <div className="pb-1"><h2 className="font-display text-xl uppercase font-extrabold theme-secondary-text">{title}</h2><p className="text-xs text-neutral-500 mt-1">{text}</p></div>; }
 
