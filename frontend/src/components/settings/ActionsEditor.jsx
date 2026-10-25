@@ -7,7 +7,7 @@ import { paletteFor } from "../../lib/categoryColors";
 import IconPicker from "../IconPicker";
 
 const blank = { name:"",category:"",subcategory:"",minutes:0,points:0,type:"positive",icon:"Zap" };
-function ActionForm({ initial,categories,onSave,onCancel,submitLabel,testIdPrefix }) {
+export function ActionForm({ initial,categories,onSave,onCancel,submitLabel,testIdPrefix }) {
   const [form,setForm]=useState({...blank,...(initial||{})}); const [pickerOpen,setPickerOpen]=useState(false); const Icon=Icons[form.icon]||Zap;
   const cat=categories.find(c=>c.name===form.category); const subcategories=(cat?.subcategories||[]).filter(s=>s.active!==false); const p=paletteFor(cat?.color||(form.type==="negative"?"red":"emerald")); const isInstant=!Number(form.minutes)||form.minutes<=0;
   const submit=e=>{e.preventDefault();if(!form.name.trim())return toast("Action name is required");if(!form.category)return toast("Pick a category");if(subcategories.length&&!form.subcategory)return toast("Pick a subcategory");const pts=Number(form.points)||0;onSave({...form,name:form.name.trim(),minutes:Math.max(0,Number(form.minutes)||0),points:form.type==="negative"?-Math.abs(pts):Math.abs(pts),type:form.type});};
