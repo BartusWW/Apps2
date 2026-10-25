@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
-import { BarChart3, Clock } from "lucide-react";
+import { BarChart3, Clock, CalendarDays, ListTodo } from "lucide-react";
 import ScoreView from "./views/ScoreView";
 import TimeView from "./views/TimeView";
+import DailyPlanCard from "./DailyPlanCard";
+import CalendarView from "./CalendarView";
 
 const slides = [
   { id: "score", label: "Score", icon: BarChart3, Component: ScoreView },
   { id: "time", label: "Time", icon: Clock, Component: TimeView },
+  { id: "plan", label: "Plan", icon: ListTodo, Component: DailyPlanCard },
+  { id: "calendar", label: "Calendar", icon: CalendarDays, Component: CalendarView },
 ];
 
 export default function DashboardCarousel() {
@@ -17,12 +21,9 @@ export default function DashboardCarousel() {
   const scrollTo = useCallback((index) => { if (emblaApi) emblaApi.scrollTo(index); }, [emblaApi]);
 
   return <section data-testid="dashboard-carousel" className="space-y-3">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-1.5 bg-neutral-900 border rounded-full p-1 theme-secondary-border">
-        {slides.map((s, i) => { const Icon = s.icon; const active = selectedIndex === i; return <button key={s.id} type="button" onClick={() => scrollTo(i)} data-testid={`carousel-tab-${s.id}`} className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] uppercase tracking-widest font-semibold transition-colors duration-150 ${active ? "theme-primary-bg text-black" : "text-neutral-400 hover:text-white"}`}><Icon size={12} strokeWidth={2.5}/>{s.label}</button>; })}
-      </div>
-      <div className="flex items-center gap-1.5" data-testid="carousel-dots">{slides.map((s, i) => <button key={s.id} type="button" aria-label={`Go to ${s.label} view`} data-testid={`carousel-dot-${s.id}`} onClick={() => scrollTo(i)} className={`h-1.5 rounded-full transition-all duration-200 ${selectedIndex === i ? "w-6 theme-primary-bg" : "w-1.5 bg-neutral-700 hover:bg-neutral-500"}`}/>)}</div>
-    </div>
+    <nav className="grid grid-cols-4 gap-1 bg-neutral-900 border theme-tertiary-border rounded-2xl p-1" aria-label="Home sections">
+      {slides.map((s, i) => { const Icon = s.icon; const active = selectedIndex === i; return <button key={s.id} type="button" onClick={() => scrollTo(i)} data-testid={`carousel-tab-${s.id}`} className={`min-w-0 flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 text-[9px] uppercase tracking-wider font-semibold transition-colors ${active ? "theme-primary-bg text-white" : "text-neutral-400 hover:text-white hover:bg-white/5"}`}><Icon size={13}/><span className="w-full truncate text-center">{s.label}</span></button>; })}
+    </nav>
     <div className="overflow-hidden -mx-5" ref={emblaRef}><div className="flex touch-pan-y">{slides.map(({ id, Component }) => <div key={id} className="min-w-0 shrink-0 grow-0 basis-full px-5" data-testid={`carousel-slide-${id}`}><Component/></div>)}</div></div>
   </section>;
 }
