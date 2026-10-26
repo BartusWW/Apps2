@@ -78,8 +78,12 @@ export default function DataManagement() {
     } else if (selected.recurring || selected.categories) {
       localStorage.setItem("cbe.settings.v1", JSON.stringify(settings));
     }
+
+    // Synchronise React state immediately. Without this, mounted components can still
+    // hold old recurring rules / daily plans and write the just-reset tasks back.
+    reloadFromStorage();
     toast("Selected data reset. Reloading…", { className: "!bg-neutral-900 !border-red-500/30 !text-white" });
-    setTimeout(() => window.location.reload(), 700);
+    setTimeout(() => window.location.reload(), 250);
   };
 
   const selectedCount = Object.values(selected).filter(Boolean).length;
