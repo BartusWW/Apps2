@@ -1,5 +1,6 @@
 import { useApp } from "../context/AppContext";
 import DashboardCarousel from "../components/DashboardCarousel";
+import WeeklyFocus from "../components/WeeklyFocus";
 import HabitsSection from "../components/HabitsSection";
 import PinnedRow from "../components/PinnedRow";
 import NextDeadlineWidget from "../components/NextDeadlineWidget";
@@ -17,6 +18,7 @@ export default function Dashboard() {
         <h1 className="font-display font-extrabold text-3xl uppercase tracking-tight">Command Center</h1>
         <p className="text-xs uppercase tracking-widest text-neutral-500 mt-1">Active profile: {profileName}</p>
       </header>
+      <WeeklyFocus />
       <DashboardCarousel />
       <NextDeadlineWidget />
       <PinnedGoalsSection />
