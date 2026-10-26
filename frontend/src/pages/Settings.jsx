@@ -1,21 +1,17 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
-import { Target, Bell, BellOff, Check, PieChart as PieChartIcon, Download, SlidersHorizontal, ListChecks, CalendarRange, Palette, ChevronDown, Database, Brain, Flag, Repeat2, Layers3, Pin } from "lucide-react";
+import { Bell, BellOff, Check, PieChart as PieChartIcon, Download, SlidersHorizontal, ListChecks, Palette, ChevronDown, Database, Layers3, Pin } from "lucide-react";
 import { onInstallAvailability, promptInstall } from "../lib/pwa";
-import HabitsEditor from "../components/settings/HabitsEditor";
 import DataManagement from "../components/settings/DataManagement";
 import AppearanceEditor from "../components/settings/AppearanceEditor";
 import CategoriesEditor from "../components/settings/CategoriesEditor";
-import BrainDumpManager from "../components/settings/BrainDumpManager";
-import GoalsEditor from "../components/settings/GoalsEditor";
 import ActionsEditor from "../components/settings/ActionsEditor";
 import PriorityProfilesEditor from "../components/settings/PriorityProfilesEditor";
 
 const SETTINGS_TABS = [
   { id: "general", label: "General", icon: SlidersHorizontal },
   { id: "cbe", label: "CBE", icon: ListChecks },
-  { id: "planning", label: "Planning", icon: CalendarRange },
   { id: "appearance", label: "Theme", icon: Palette },
   { id: "notifications", label: "Notifications", icon: Bell },
 ];
@@ -31,20 +27,12 @@ export default function Settings() {
   const [tab, setTab] = useState("general");
   const [openSection, setOpenSection] = useState(null);
   const [pinnedSections, setPinnedSections] = useState(readPinnedSections);
-  const [goalHours, setGoalHours] = useState(String(((settings.weeklyGoalMinutes || 1200) / 60).toFixed(1).replace(/\.0$/, "")));
 
   useEffect(() => { localStorage.setItem(PINNED_SECTIONS_KEY, JSON.stringify(pinnedSections)); }, [pinnedSections]);
   const selectTab = (id) => { setTab(id); setOpenSection(null); };
   const toggleSection = (id) => setOpenSection((current) => current === id ? null : id);
   const togglePin = (id) => setPinnedSections((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const sectionProps = (id) => ({ id, open: openSection === id || pinnedSections.includes(id), pinned: pinnedSections.includes(id), onToggle: toggleSection, onPin: togglePin });
-
-  const saveGoal = () => {
-    const hrs = Number(goalHours);
-    if (!hrs || hrs <= 0) { toast("Goal must be > 0 hours"); return; }
-    updateSettings({ weeklyGoalMinutes: Math.round(hrs * 60) });
-    toast(`Weekly goal set to ${hrs}h`);
-  };
 
   const toggleReminder = async () => {
     if (settings.reminderEnabled) { updateSettings({ reminderEnabled: false }); toast("Daily reminder disabled"); return; }
@@ -70,13 +58,6 @@ export default function Settings() {
       <Collapsible {...sectionProps("categories")} title="Categories & Subcategories" icon={Layers3} meta={`${(settings.categories||[]).length}`}><CategoriesEditor /></Collapsible>
       <Collapsible {...sectionProps("profiles")} title="Priority Profiles" icon={SlidersHorizontal}><PriorityProfilesEditor /></Collapsible>
       <Collapsible {...sectionProps("allocation")} title="Allocation Targets" icon={PieChartIcon}><AllocationTargetsEditor actions={actions} targets={settings.allocationTargets||{}} onChange={next=>updateSettings({allocationTargets:next})}/></Collapsible>
-    </section>}
-
-    {tab==="planning"&&<section className="space-y-3" data-testid="settings-planning-tab"><SectionIntro title="Planning" text="Goals, habits and targets that steer execution." />
-      <Collapsible {...sectionProps("weekly-goal")} title="Weekly Development Goal" icon={Target}><div className="space-y-3"><p className="text-xs text-neutral-400">Target hours for the Time view progress bar.</p><div className="flex items-end gap-2"><div className="flex-1"><label className="text-[10px] uppercase tracking-widest text-neutral-500">Hours per week</label><input type="number" min="1" step="0.5" value={goalHours} onChange={e=>setGoalHours(e.target.value)} className="w-full mt-1 bg-neutral-950 border theme-tertiary-border rounded-lg px-3 py-2 text-sm text-white"/></div><button type="button" onClick={saveGoal} className="text-xs uppercase tracking-widest font-semibold px-3.5 py-2 rounded-lg theme-primary-bg text-white">Save</button></div><p className="text-[10px] uppercase tracking-widest text-neutral-500">Current: {(settings.weeklyGoalMinutes/60).toFixed(1)}h / week</p></div></Collapsible>
-      <Collapsible {...sectionProps("goals")} title="Goals" icon={Flag}><GoalsEditor /></Collapsible>
-      <Collapsible {...sectionProps("habits")} title="Habits" icon={Repeat2}><HabitsEditor /></Collapsible>
-      <Collapsible {...sectionProps("brain-dump")} title="Brain Dump" icon={Brain}><BrainDumpManager /></Collapsible>
     </section>}
 
     {tab==="appearance"&&<section className="space-y-3" data-testid="settings-appearance-tab"><SectionIntro title="Appearance" text="Theme, palette, surfaces and background treatment." />
