@@ -1,1 +1,58 @@
-import { useEffect } from "react";import { useApp } from "../context/AppContext";import { localISO } from "../lib/dateUtils";const MARKER="cbe.demo.seed.execution-v22";function mondayISO(){const d=new Date(),day=d.getDay(),diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);return localISO(d)}const recurring=[{id:"demo-habit-read",actionId:"act-read-25",days:[1,2,3,4,5,6,0],frequency:"each",frog:false,unfinished:"next",enabled:true,habit:{enabled:true,bonusPct:0,streak:0,stepPct:5,maxBonusPct:50,missMultiplier:.5,amount:25,unit:"pages",weeklyTarget:175,monthlyTarget:750,accent:"green",icon:"BookOpen"}},{id:"demo-habit-study",actionId:"act-pro-study",days:[1,2,3,4,5],frequency:"each",frog:false,unfinished:"next",enabled:true,habit:{enabled:true,bonusPct:0,streak:0,stepPct:5,maxBonusPct:50,missMultiplier:.5,amount:30,unit:"minutes",weeklyTarget:150,monthlyTarget:600,accent:"blue",icon:"Brain"}},{id:"demo-habit-ruck",actionId:"act-ruck",days:[6],frequency:"each",frog:false,unfinished:"next",enabled:true,habit:{enabled:true,bonusPct:0,streak:0,stepPct:5,maxBonusPct:50,missMultiplier:.5,amount:10,unit:"km",weeklyTarget:10,monthlyTarget:40,accent:"white",icon:"Backpack"}},{id:"demo-habit-mobility",actionId:"act-mobility",days:[2,4,0],frequency:"each",frog:false,unfinished:"next",enabled:true,habit:{enabled:true,bonusPct:0,streak:0,stepPct:5,maxBonusPct:50,missMultiplier:.5,amount:20,unit:"minutes",weeklyTarget:60,monthlyTarget:240,accent:"orange",icon:"Activity"}},{id:"demo-rec-review",actionId:"act-weekly-review",days:[0],frequency:"each",frog:false,unfinished:"next",enabled:true,habit:null},{id:"demo-rec-content",actionId:"act-raw-video",days:[2,4],frequency:"once-week",frog:false,unfinished:"next",enabled:true,habit:null},{id:"demo-rec-admin",actionId:"act-admin",days:[5,6,0],frequency:"once-week",frog:false,unfinished:"next",enabled:true,habit:null}];export default function DemoBootstrap(){const{settings,goals,updateSettings,addGoal,actions,updateAction}=useApp();useEffect(()=>{if(localStorage.getItem(MARKER))return;const read=actions.find(a=>a.id==="act-read-25"),ruck=actions.find(a=>a.id==="act-ruck");if(read)updateAction(read.id,{name:"Read",scoringType:"per-unit",unit:"pages",pointsPerUnit:.5,points:0});if(ruck)updateAction(ruck.id,{name:"Ruck",scoringType:"per-unit",unit:"km",pointsPerUnit:2,points:0});const weekKey=mondayISO(),patch={};if(!(settings.recurringTasks||[]).length)patch.recurringTasks=recurring;if(!settings.weeklyFocus?.frogIds?.length&&!settings.weeklyFocus?.actionIds?.length)patch.weeklyFocus={weekKey,frogIds:["act-product-milestone","act-publish-reel"],completedFrogIds:[],actionIds:["act-publish-reel","act-raw-video","act-sbd"],actionTargets:{"act-publish-reel":3,"act-raw-video":2,"act-sbd":1}};patch.pinnedActionIds=[...new Set([...(settings.pinnedActionIds||[]),"act-product-milestone","act-publish-reel","act-raw-video","act-sbd"])];updateSettings(patch);if(!goals.length){addGoal({id:"demo-goal-reels",name:"Publish 30 reels",icon:"Rocket",color:"sky",description:"Ship 30 reels.",progressType:"linked-tasks",progress:{linkedTasks:[{actionId:"act-publish-reel",target:30}]},pinned:true});addGoal({id:"demo-goal-ruck",name:"Ruck 100 km",icon:"Backpack",color:"emerald",description:"Build real rucking volume.",progressType:"linked-tasks",progress:{linkedTasks:[{actionId:"act-ruck",target:100}]},pinned:false})}localStorage.setItem(MARKER,"1")},[]);return null}
+import { useEffect } from "react";
+import { useApp } from "../context/AppContext";
+
+// v2.4 retires the old demo bootstrap. Earlier builds seeded example weekly
+// focus actions (Publish Reel, Record RAW Video, SBD Session), recurring rules
+// and demo goals so fresh builds were immediately populated for testing.
+//
+// Keep this component temporarily as a one-time compatibility cleanup for
+// existing installs: remove only data carrying the old demo IDs/signature.
+// It never creates new tasks, habits, goals or recurring rules.
+const CLEANUP_MARKER = "cbe.demo.seed.retired-v24";
+const DEMO_RECURRING_PREFIX = "demo-";
+const DEMO_GOAL_IDS = new Set(["demo-goal-reels", "demo-goal-ruck"]);
+const DEMO_WEEKLY_ACTIONS = ["act-publish-reel", "act-raw-video", "act-sbd"];
+const DEMO_FROGS = ["act-product-milestone", "act-publish-reel"];
+
+function sameSet(values, expected) {
+  const a = [...(values || [])].sort();
+  const b = [...expected].sort();
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+export default function DemoBootstrap() {
+  const { settings, goals, updateSettings, deleteGoal } = useApp();
+
+  useEffect(() => {
+    if (localStorage.getItem(CLEANUP_MARKER)) return;
+
+    const patch = {};
+    const recurring = settings.recurringTasks || [];
+    const withoutDemoRecurring = recurring.filter(
+      (rule) => !String(rule?.id || "").startsWith(DEMO_RECURRING_PREFIX)
+    );
+    if (withoutDemoRecurring.length !== recurring.length) {
+      patch.recurringTasks = withoutDemoRecurring;
+    }
+
+    const focus = settings.weeklyFocus;
+    const isLegacyDemoFocus =
+      focus &&
+      sameSet(focus.actionIds, DEMO_WEEKLY_ACTIONS) &&
+      sameSet(focus.frogIds, DEMO_FROGS);
+    if (isLegacyDemoFocus) {
+      patch.weeklyFocus = {};
+    }
+
+    if (Object.keys(patch).length) updateSettings(patch);
+
+    for (const goal of goals || []) {
+      if (DEMO_GOAL_IDS.has(goal.id)) deleteGoal(goal.id);
+    }
+
+    localStorage.removeItem("cbe.demo.seed.execution-v22");
+    localStorage.setItem(CLEANUP_MARKER, "1");
+  }, [settings.recurringTasks, settings.weeklyFocus, goals, updateSettings, deleteGoal]);
+
+  return null;
+}
