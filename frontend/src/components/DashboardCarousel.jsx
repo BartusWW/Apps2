@@ -1,31 +1,15 @@
-import { useState } from "react";
-import { BarChart3, Clock, CalendarDays, ListTodo } from "lucide-react";
-import ScoreView from "./views/ScoreView";
-import TimeView from "./views/TimeView";
+import { useMemo, useState } from "react";
+import { ListTodo, Pin, Flame, Sun, CalendarRange } from "lucide-react";
+import { useApp } from "../context/AppContext";
 import DailyPlanCard from "./DailyPlanCard";
-import CalendarView from "./CalendarView";
-
-const slides = [
-  { id: "score", label: "Score", icon: BarChart3, Component: ScoreView },
-  { id: "time", label: "Time", icon: Clock, Component: TimeView },
-  { id: "plan", label: "Plan", icon: ListTodo, Component: DailyPlanCard },
-  { id: "calendar", label: "Calendar", icon: CalendarDays, Component: CalendarView },
-];
-
-export default function DashboardCarousel() {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const ActiveComponent = slides[selectedIndex].Component;
-
-  return <section data-testid="dashboard-carousel" className="space-y-3">
-    <nav className="grid grid-cols-4 gap-1 bg-neutral-900 border theme-tertiary-border rounded-2xl p-1" aria-label="Home sections">
-      {slides.map((s, i) => {
-        const Icon = s.icon;
-        const active = selectedIndex === i;
-        return <button key={s.id} type="button" onClick={() => setSelectedIndex(i)} data-testid={`carousel-tab-${s.id}`} className={`min-w-0 flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 text-[9px] uppercase tracking-wider font-semibold transition-colors ${active ? "theme-primary-bg text-white" : "text-neutral-400 hover:text-white hover:bg-white/5"}`}><Icon size={13}/><span className="w-full truncate text-center">{s.label}</span></button>;
-      })}
-    </nav>
-    <div data-testid={`carousel-slide-${slides[selectedIndex].id}`}>
-      <ActiveComponent />
-    </div>
-  </section>;
-}
+import PinnedRow from "./PinnedRow";
+import WeeklyFocus from "./WeeklyFocus";
+import ScoreView from "./views/ScoreView";
+import { localISO } from "../lib/dateUtils";
+const round1=n=>Math.round((Number(n)||0)*10)/10;
+function mondayISO(){const d=new Date(),day=d.getDay(),diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);return localISO(d)}
+const tabs=[{id:"tasks",label:"Tasks",icon:ListTodo},{id:"favs",label:"Favs",icon:Pin},{id:"frogs",label:"Frogs",icon:Flame},{id:"day",label:"Day",icon:Sun},{id:"week",label:"Week",icon:CalendarRange}];
+export default function DashboardCarousel(){const[selected,setSelected]=useState("tasks");return <section className="space-y-3" data-testid="dashboard-carousel"><nav className="grid grid-cols-5 gap-1 bg-neutral-900 border theme-tertiary-border rounded-2xl p-1">{tabs.map(t=>{const I=t.icon,a=selected===t.id;return <button key={t.id} onClick={()=>setSelected(t.id)} className={`min-w-0 flex flex-col items-center gap-1 rounded-xl px-1 py-2.5 text-[9px] uppercase font-semibold ${a?"theme-primary-bg text-white":"text-neutral-400"}`}><I size={13}/><span className="truncate w-full text-center">{t.label}</span></button>})}</nav>{selected==="tasks"?<DailyPlanCard/>:selected==="favs"?<FavoritesView/>:selected==="frogs"?<WeeklyFocus/>:selected==="day"?<ScoreView/>:<WeekView/>}</section>}
+function FavoritesView(){return <section className="space-y-3"><div><p className="text-[10px] uppercase tracking-widest theme-primary-text font-bold">Favorites</p><p className="text-xs text-neutral-500 mt-1">Pinned execution shortcuts.</p></div><PinnedRow/></section>}
+function WeekView(){const{entries,settings,actions}=useApp(),start=mondayISO(),weekEntries=useMemo(()=>entries.filter(e=>e.date>=start),[entries,start]),earned=round1(weekEntries.filter(e=>Number(e.points)>0).reduce((s,e)=>s+Number(e.points||0),0)),drain=round1(weekEntries.filter(e=>Number(e.points)<0).reduce((s,e)=>s+Math.abs(Number(e.points||0)),0)),wf=settings.weeklyFocus?.weekKey===start?settings.weeklyFocus:{frogIds:[],completedFrogIds:[],actionIds:[]};return <section className="space-y-3"><div className="grid grid-cols-3 gap-2"><Stat label="Net CBE" value={round1(earned-drain)}/><Stat label="Actions" value={weekEntries.length}/><Stat label="FROGs" value={`${(wf.completedFrogIds||[]).length}/${(wf.frogIds||[]).length}`}/></div><div className="bg-neutral-900 border theme-tertiary-border rounded-xl p-4"><p className="text-[10px] uppercase tracking-widest text-neutral-500">Planned for the week</p><div className="space-y-2 mt-3">{(wf.actionIds||[]).map(id=>{const a=actions.find(x=>x.id===id);if(!a)return null;const n=weekEntries.filter(e=>e.weeklyFocusActionId===id).length;return <div key={id} className="flex justify-between border-b border-white/5 pb-2"><span className="text-sm">{a.name}</span><span className="text-xs theme-primary-text">{n} done</span></div>})}{!(wf.actionIds||[]).length&&<p className="text-xs text-neutral-600">No Weekly Actions yet.</p>}</div></div></section>}
+function Stat({label,value}){return <div className="bg-neutral-900 border theme-tertiary-border rounded-xl p-3 text-center"><p className="text-[9px] uppercase tracking-widest text-neutral-600">{label}</p><p className="font-display font-extrabold text-xl mt-1">{value}</p></div>}
