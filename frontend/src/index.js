@@ -5,9 +5,10 @@ import "@/index.css";
 import App from "@/App";
 import { registerServiceWorker } from "@/lib/pwa";
 import { runMigrations } from "@/lib/migrations";
+import { runV23CleanStart } from "@/lib/cleanStart";
 
-// Run schema migrations BEFORE rendering so AppContext loads up-to-date data.
 runMigrations();
+runV23CleanStart();
 
 const queryClient = new QueryClient({
   defaultOptions: {

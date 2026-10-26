@@ -1,52 +1,22 @@
 {
   "name": "CBE Life Scoreboard",
-  "short_name": "CBE Score",
-  "description": "Personal performance tracker — Core / Build / Eliminate. Log dev actions, track scores and time.",
+  "short_name": "CBE",
+  "description": "Personal performance system — Core / Build / Eliminate.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0A0A0A",
-  "theme_color": "#0A0A0A",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "categories": ["productivity", "lifestyle", "health"],
   "icons": [
-    {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    {"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"},
+    {"src":"/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"/icon-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
   ],
   "shortcuts": [
-    {
-      "name": "Weekly Review",
-      "short_name": "Review",
-      "url": "/review",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Log",
-      "short_name": "Log",
-      "url": "/log",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
-    }
+    {"name":"Weekly Review","short_name":"Review","url":"/review","icons":[{"src":"/icon-192.png","sizes":"192x192"}]},
+    {"name":"Log","short_name":"Log","url":"/log","icons":[{"src":"/icon-192.png","sizes":"192x192"}]}
   ]
 }
