@@ -2,3 +2,5 @@
 .App input[type="number"]::-webkit-outer-spin-button,.App input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.App input[type="number"]{-moz-appearance:textfield}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--theme-bg,#070707)}::-webkit-scrollbar-thumb{background:#262626;border-radius:4px}::-webkit-scrollbar-thumb:hover{background:#404040}
 ::selection{background:var(--theme-primary,#dc2626);color:#fff}
+/* Execution cards: restore strong tap targets after quantity logging was introduced. */
+.App article.bg-neutral-950>div:first-child{padding-top:1rem;padding-bottom:1rem}.App article.bg-neutral-950 .font-display.font-extrabold{font-size:1.2rem;line-height:1.15}.App article.bg-neutral-950>div.border-t.p-2{padding:.55rem;gap:.45rem}.App article.bg-neutral-950>div.border-t.p-2 button{min-height:2.25rem;font-size:.65rem}.App article.bg-neutral-950>div.border-t.p-2 button.flex-1{font-weight:800;letter-spacing:.04em}
