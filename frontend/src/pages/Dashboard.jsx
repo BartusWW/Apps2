@@ -1,7 +1,6 @@
 import { useApp } from "../context/AppContext";
 import DashboardCarousel from "../components/DashboardCarousel";
 import WeeklyFocus from "../components/WeeklyFocus";
-import HabitsSection from "../components/HabitsSection";
 import PinnedRow from "../components/PinnedRow";
 import NextDeadlineWidget from "../components/NextDeadlineWidget";
 import PinnedGoalsSection from "../components/PinnedGoalsSection";
@@ -26,7 +25,6 @@ export default function Dashboard() {
         <div className="flex items-center justify-between"><h2 className="text-[10px] uppercase tracking-[0.18em] text-emerald-400 font-semibold">Favorites</h2><span className="text-[10px] uppercase tracking-widest text-neutral-600">Full logging lives in Log</span></div>
         <PinnedRow />
       </section>
-      <HabitsSection />
     </div>
   );
 }
