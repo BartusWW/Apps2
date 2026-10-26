@@ -1,236 +1,41 @@
-import { useMemo } from "react";
+import { useMemo,useState } from "react";
 import { useApp } from "../../context/AppContext";
-import ProgressBar from "../ProgressBar";
 import PeriodNotes from "../PeriodNotes";
-import {
-  startOfWeek,
-  endOfWeek,
-  startOfLastWeek,
-  formatWeekRange,
-  isInRange,
-  weekKey,
-} from "../../lib/dateUtils";
-import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { ChevronLeft,ChevronRight,LockKeyhole,Target,Flame,ListChecks,Repeat2,TrendingUp,ArrowRight,Trash2,XCircle } from "lucide-react";
 
-function aggregate(entries, start, end) {
-  let positive = 0;
-  let negative = 0;
-  let minutes = 0;
-  const categories = {};
-  for (const e of entries) {
-    if (!isInRange(e, start, end)) continue;
-    if (e.type === "positive") {
-      positive += e.points;
-      minutes += e.minutes || 0;
-    } else {
-      negative += Math.abs(e.points);
-    }
-    if (!categories[e.category]) categories[e.category] = { positive: 0, negative: 0 };
-    if (e.type === "positive") categories[e.category].positive += e.points;
-    else categories[e.category].negative += Math.abs(e.points);
-  }
-  return {
-    positive,
-    negative,
-    net: positive - negative,
-    hours: minutes / 60,
-    categories,
-  };
-}
+const R=n=>Math.round((Number(n)||0)*10)/10;
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const monday=(offset=0)=>{const d=new Date(),day=d.getDay(),diff=day===0?-6:1-day;d.setHours(12,0,0,0);d.setDate(d.getDate()+diff+offset*7);return d};
+const plusDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const fmt=d=>d.toLocaleDateString(undefined,{day:"numeric",month:"short"});
+const totalOf=i=>Math.max(1,Number(i?.stackCount)||1),doneOf=i=>Math.min(totalOf(i),Math.max(0,Number(i?.stackDone)||0));
+const NOTE_FIELDS=[{key:"wentWell",label:"What went well?",placeholder:"Wins, breakthroughs, momentum…"},{key:"slowed",label:"What slowed me down?",placeholder:"Friction, distractions, blockers…"},{key:"improve",label:"What will I improve next week?",placeholder:"Concrete next-step bets…"}];
 
-function DeltaPill({ delta }) {
-  if (delta === 0) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
-        <Minus size={12} /> Flat
-      </span>
-    );
-  }
-  const positive = delta > 0;
-  return (
-    <span
-      className={`inline-flex items-center gap-1 text-xs font-semibold ${
-        positive ? "text-emerald-400" : "text-red-500"
-      }`}
-    >
-      {positive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-      {positive ? "+" : ""}
-      {delta}
-    </span>
-  );
-}
+function Metric({icon:Icon,label,value,sub,tone="theme-primary-text"}){return <div className="bg-neutral-900 border theme-tertiary-border rounded-xl p-3"><div className="flex items-center gap-1.5 text-neutral-600"><Icon size={12}/><p className="text-[8px] uppercase tracking-widest font-bold">{label}</p></div><p className={`font-display font-extrabold text-2xl mt-1 ${tone}`}>{value}</p>{sub&&<p className="text-[9px] text-neutral-600 mt-1">{sub}</p>}</div>}
+function Row({label,value,sub}){return <div className="flex items-center justify-between gap-3 border-b border-white/5 last:border-0 py-2"><div className="min-w-0"><p className="text-xs font-semibold truncate">{label}</p>{sub&&<p className="text-[9px] text-neutral-600">{sub}</p>}</div><p className="font-display font-extrabold text-sm theme-primary-text shrink-0">{value}</p></div>}
 
-const NOTE_FIELDS = [
-  { key: "wentWell", label: "What went well?", placeholder: "Wins, breakthroughs, momentum…" },
-  { key: "slowed", label: "What slowed me down?", placeholder: "Friction, distractions, blockers…" },
-  { key: "improve", label: "What will I improve next week?", placeholder: "Concrete next-step bets…" },
-];
-
-export default function WeeklyReviewView() {
-  const { entries, notes, updateWeeklyNote } = useApp();
-
-  const data = useMemo(() => {
-    const thisStart = startOfWeek();
-    const thisEnd = endOfWeek();
-    const lastStart = startOfLastWeek();
-    const lastEnd = thisStart;
-
-    const thisWeek = aggregate(entries, thisStart, thisEnd);
-    const lastWeek = aggregate(entries, lastStart, lastEnd);
-
-    const allCategories = new Set([
-      ...Object.keys(thisWeek.categories),
-      ...Object.keys(lastWeek.categories),
-    ]);
-
-    const maxCategoryValue = Math.max(
-      1,
-      ...Array.from(allCategories).map((c) => {
-        const t = thisWeek.categories[c] || { positive: 0, negative: 0 };
-        return Math.max(t.positive, t.negative);
-      }),
-    );
-
-    const maxPosNeg = Math.max(1, thisWeek.positive, thisWeek.negative);
-
-    return {
-      thisWeek,
-      lastWeek,
-      allCategories: Array.from(allCategories),
-      thisStart,
-      maxCategoryValue,
-      maxPosNeg,
-    };
-  }, [entries]);
-
-  const { thisWeek, lastWeek, allCategories, thisStart, maxCategoryValue, maxPosNeg } = data;
-  const wKey = weekKey();
-  const weeklyNote = notes.weekly[wKey] || {};
-
-  return (
-    <div className="space-y-6" data-testid="weekly-review-view">
-      <header>
-        <h1 className="font-display font-extrabold text-3xl uppercase tracking-tight">
-          Weekly Review
-        </h1>
-        <p className="text-xs uppercase tracking-widest text-neutral-500 mt-1">
-          {formatWeekRange(thisStart)}
-        </p>
-      </header>
-
-      <section className="grid grid-cols-2 gap-3" data-testid="review-top-cards">
-        <div className="col-span-2 bg-neutral-900 border border-white/10 rounded-xl p-5">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-neutral-500 font-semibold">
-            Net Points · This Week
-          </p>
-          <div className="flex items-end justify-between gap-4 mt-2">
-            <span
-              data-testid="review-net-value"
-              className={`font-display font-extrabold text-5xl tracking-tighter leading-none ${
-                thisWeek.net < 0 ? "text-red-500" : thisWeek.net > 0 ? "text-emerald-400" : "text-white"
-              }`}
-            >
-              {thisWeek.net > 0 ? `+${thisWeek.net}` : thisWeek.net}
-            </span>
-            <DeltaPill delta={thisWeek.net - lastWeek.net} />
-          </div>
-          <p className="text-xs text-neutral-400 mt-3">vs last week: {lastWeek.net}</p>
-        </div>
-
-        <div className="bg-neutral-900 border border-white/10 rounded-xl p-4">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-neutral-500 font-semibold">
-            Dev Hours
-          </p>
-          <p className="font-display font-extrabold text-3xl tracking-tighter text-emerald-400 mt-1.5">
-            {thisWeek.hours.toFixed(1)}
-            <span className="text-xs text-neutral-500 ml-1 tracking-widest">hrs</span>
-          </p>
-          <p className="text-[10px] text-neutral-500 mt-2 uppercase tracking-widest">
-            Last week: {lastWeek.hours.toFixed(1)} hrs
-          </p>
-        </div>
-
-        <div className="bg-neutral-900 border border-white/10 rounded-xl p-4">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-neutral-500 font-semibold">
-            Build / Drain
-          </p>
-          <p className="font-display font-extrabold text-3xl tracking-tighter mt-1.5">
-            <span className="text-emerald-400">+{thisWeek.positive}</span>
-            <span className="text-neutral-600 mx-1">/</span>
-            <span className="text-red-500">-{thisWeek.negative}</span>
-          </p>
-          <p className="text-[10px] text-neutral-500 mt-2 uppercase tracking-widest">
-            Last: +{lastWeek.positive} / -{lastWeek.negative}
-          </p>
-        </div>
-      </section>
-
-      <section className="bg-neutral-900 border border-white/10 rounded-xl p-5 space-y-4" data-testid="review-posneg">
-        <h2 className="font-display font-extrabold uppercase tracking-tight text-base">
-          Positive vs Negative
-        </h2>
-        <ProgressBar tone="positive" value={thisWeek.positive} max={maxPosNeg} label="Positive" valueLabel={`+${thisWeek.positive}`} />
-        <ProgressBar tone="negative" value={thisWeek.negative} max={maxPosNeg} label="Negative" valueLabel={`-${thisWeek.negative}`} />
-      </section>
-
-      <section className="bg-neutral-900 border border-white/10 rounded-xl p-5 space-y-4" data-testid="review-categories">
-        <h2 className="font-display font-extrabold uppercase tracking-tight text-base">
-          Category Breakdown
-        </h2>
-        {allCategories.length === 0 ? (
-          <p className="text-sm text-neutral-500">No entries this week or last.</p>
-        ) : (
-          <div className="space-y-3.5">
-            {allCategories.map((cat) => {
-              const t = thisWeek.categories[cat] || { positive: 0, negative: 0 };
-              const isNeg = t.negative > t.positive;
-              const val = isNeg ? t.negative : t.positive;
-              return (
-                <ProgressBar
-                  key={cat}
-                  tone={isNeg ? "negative" : "positive"}
-                  value={val}
-                  max={maxCategoryValue}
-                  label={cat}
-                  valueLabel={isNeg ? `-${val}` : `+${val}`}
-                />
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <section className="bg-neutral-900 border border-white/10 rounded-xl p-5" data-testid="review-compare">
-        <h2 className="font-display font-extrabold uppercase tracking-tight text-base mb-3">
-          This Week vs Last Week
-        </h2>
-        <div className="grid grid-cols-3 text-center divide-x divide-white/10">
-          <div className="px-2">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Net</p>
-            <p className="font-display font-extrabold text-2xl tracking-tighter mt-1">{thisWeek.net}</p>
-            <DeltaPill delta={thisWeek.net - lastWeek.net} />
-          </div>
-          <div className="px-2">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Hours</p>
-            <p className="font-display font-extrabold text-2xl tracking-tighter mt-1">{thisWeek.hours.toFixed(1)}</p>
-            <DeltaPill delta={Math.round((thisWeek.hours - lastWeek.hours) * 10) / 10} />
-          </div>
-          <div className="px-2">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Build</p>
-            <p className="font-display font-extrabold text-2xl tracking-tighter mt-1 text-emerald-400">+{thisWeek.positive}</p>
-            <DeltaPill delta={thisWeek.positive - lastWeek.positive} />
-          </div>
-        </div>
-      </section>
-
-      <PeriodNotes
-        title="Weekly Notes"
-        subtitle={`Reflection · ${wKey}`}
-        fields={NOTE_FIELDS}
-        value={weeklyNote}
-        onChange={(patch) => updateWeeklyNote(wKey, patch)}
-        testIdPrefix="weekly"
-      />
-    </div>
-  );
+export default function WeeklyReviewView(){
+ const{entries,dailyPlans,actions,goals,notes,updateWeeklyNote}=useApp(),[offset,setOffset]=useState(0);
+ const start=monday(offset),end=plusDays(start,6),startISO=iso(start),endISO=iso(end),key=startISO,stored=notes.weekly?.[key]||{},frozen=stored.snapshot||null;
+ const live=useMemo(()=>{
+  const weekEntries=entries.filter(e=>e.date>=startISO&&e.date<=endISO),days=Array.from({length:7},(_,n)=>{const date=iso(plusDays(start,n)),plan=dailyPlans[date]||{},snap=plan.closingSnapshot||null,dayEntries=weekEntries.filter(e=>e.date===date),earned=R(dayEntries.filter(e=>Number(e.points)>0).reduce((s,e)=>s+Number(e.points||0),0)),drain=R(dayEntries.filter(e=>Number(e.points)<0).reduce((s,e)=>s+Math.abs(Number(e.points||0)),0));return{date,score:snap?.score??plan.dayScore??null,earned:snap?.earned??earned,drain:snap?.drain??drain,closed:plan.dayStatus==="closed-complete",snapshot:snap,items:Array.isArray(snap?.items)?snap.items:(Array.isArray(plan.items)?plan.items:[])}}),closedDays=days.filter(x=>x.closed),earned=R(weekEntries.filter(e=>Number(e.points)>0).reduce((s,e)=>s+Number(e.points||0),0)),drain=R(weekEntries.filter(e=>Number(e.points)<0).reduce((s,e)=>s+Math.abs(Number(e.points||0)),0)),planned=R(closedDays.reduce((s,d)=>s+Number(d.snapshot?.plannedPotential||0),0)),over=R(closedDays.reduce((s,d)=>s+Number(d.snapshot?.over||0),0)),tasksDone=closedDays.reduce((s,d)=>s+Number(d.snapshot?.tasksDone||0),0),tasksTotal=closedDays.reduce((s,d)=>s+Number(d.snapshot?.tasksTotal||0),0),frogsDone=closedDays.reduce((s,d)=>s+Number(d.snapshot?.frogsDone||0),0),frogsTotal=closedDays.reduce((s,d)=>s+Number(d.snapshot?.frogsTotal||0),0),habitsDone=closedDays.reduce((s,d)=>s+Number(d.snapshot?.habitsDone||0),0),habitsTotal=closedDays.reduce((s,d)=>s+Number(d.snapshot?.habitsTotal||0),0),scores=closedDays.filter(d=>d.score!==null),weekScore=scores.length?R(scores.reduce((s,d)=>s+Number(d.score||0),0)/scores.length):0,best=scores.length?[...scores].sort((a,b)=>b.score-a.score)[0]:null,worst=scores.length?[...scores].sort((a,b)=>a.score-b.score)[0]:null;
+  const resolutions={tomorrow:0,drop:0,wontDo:0};for(const d of closedDays)for(const i of d.items||[]){const a=i.resolvedAs;if(!a)continue;resolutions.tomorrow+=Number(a.tomorrow)||0;resolutions.drop+=Number(a.drop)||0;resolutions.wontDo+=Number(a.wontDo)||0}
+  const output=(actions||[]).filter(a=>a.scoringType==="per-unit").map(a=>({id:a.id,name:a.name,unit:a.unit||"unit",value:R(weekEntries.filter(e=>e.actionId===a.id).reduce((s,e)=>s+(Number(e.quantity)||0,0))})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value);
+  const goalContribution=(goals||[]).filter(g=>g.status==="active").map(g=>{const cats=new Set(g.linkedActivities||[]),matched=weekEntries.filter(e=>e.type==="positive"&&cats.has(e.category)),points=R(matched.reduce((s,e)=>s+Number(e.points||0),0)),count=matched.length;return{id:g.id,name:g.name,points,count}}).filter(x=>x.points>0||x.count>0).sort((a,b)=>b.points-a.points);
+  const taskPct=tasksTotal?tasksDone/tasksTotal:1,frogPct=frogsTotal?frogsDone/frogsTotal:1,habitPct=habitsTotal?habitsDone/habitsTotal:1;let diagnosis="No closed days yet";if(closedDays.length){const weakest=Math.min(taskPct,frogPct,habitPct);if(weekScore>=85&&weakest>=.8)diagnosis="Strong execution · balanced week";else if(frogPct<.65)diagnosis="Impact gap · protect the FROGs";else if(habitPct<.65)diagnosis="Habit consistency is the main leak";else if(taskPct<.7)diagnosis="Planning outran execution";else if(over>0)diagnosis="Solid execution · meaningful overperformance";else diagnosis="Stable week · keep tightening execution"}
+  return{weekScore,earned,drain,planned,over,tasksDone,tasksTotal,frogsDone,frogsTotal,habitsDone,habitsTotal,best,worst,resolutions,output,goalContribution,diagnosis,closedDays:closedDays.length};
+ },[entries,dailyPlans,actions,goals,startISO,endISO]);
+ const data=frozen||live,freeze=()=>updateWeeklyNote(key,{snapshot:{...live,frozenAt:new Date().toISOString(),startISO,endISO}}),unfreeze=()=>updateWeeklyNote(key,{snapshot:null});
+ return <div className="space-y-4" data-testid="weekly-review-view">
+  <header className="flex items-center justify-between gap-3"><button onClick={()=>setOffset(x=>x-1)} className="h-9 w-9 rounded-lg border theme-tertiary-border"><ChevronLeft size={16} className="mx-auto"/></button><div className="text-center"><p className="text-[9px] uppercase tracking-[.18em] theme-primary-text font-bold">Weekly Review 2.0</p><h1 className="font-display font-extrabold text-2xl uppercase">{fmt(start)} — {fmt(end)}</h1><p className="text-[9px] uppercase text-neutral-600">{frozen?"Frozen historical record":`${live.closedDays}/7 days closed`}</p></div><button onClick={()=>setOffset(x=>Math.min(0,x+1))} disabled={offset===0} className="h-9 w-9 rounded-lg border theme-tertiary-border disabled:opacity-20"><ChevronRight size={16} className="mx-auto"/></button></header>
+  <section className="bg-neutral-900 border theme-primary-border rounded-2xl p-4"><div className="flex items-end justify-between"><div><p className="text-[9px] uppercase tracking-widest text-neutral-500">Week Score</p><p className="font-display font-extrabold text-5xl theme-primary-text">{data.weekScore}</p></div><div className="text-right"><p className="text-[9px] uppercase text-neutral-600">Diagnosis</p><p className="text-xs font-bold max-w-[190px]">{data.diagnosis}</p></div></div></section>
+  <section className="grid grid-cols-2 gap-2"><Metric icon={Target} label="Earned CBE" value={`+${data.earned}`}/><Metric icon={TrendingUp} label="Planned" value={`+${data.planned}`}/><Metric icon={TrendingUp} label="Over" value={`+${data.over}`} tone="text-emerald-400"/><Metric icon={Target} label="Drain" value={`-${data.drain}`} tone={data.drain?"text-red-500":"text-neutral-400"}/></section>
+  <section className="grid grid-cols-3 gap-2"><Metric icon={ListChecks} label="Tasks" value={`${data.tasksDone}/${data.tasksTotal}`}/><Metric icon={Flame} label="FROGs" value={`${data.frogsDone}/${data.frogsTotal}`}/><Metric icon={Repeat2} label="Habits" value={`${data.habitsDone}/${data.habitsTotal}`}/></section>
+  <section className="grid grid-cols-2 gap-2"><div className="bg-neutral-900 border theme-tertiary-border rounded-xl p-3"><p className="text-[8px] uppercase text-neutral-600">Best Day</p><p className="font-display font-extrabold text-xl mt-1">{data.best?data.best.score:"—"}</p><p className="text-[9px] text-neutral-500">{data.best?.date||"No closed day"}</p></div><div className="bg-neutral-900 border theme-tertiary-border rounded-xl p-3"><p className="text-[8px] uppercase text-neutral-600">Weakest Day</p><p className="font-display font-extrabold text-xl mt-1">{data.worst?data.worst.score:"—"}</p><p className="text-[9px] text-neutral-500">{data.worst?.date||"No closed day"}</p></div></section>
+  <section className="bg-neutral-900 border theme-tertiary-border rounded-xl p-4"><p className="text-[9px] uppercase tracking-widest font-bold theme-primary-text">Real Output</p>{data.output?.length?<div className="mt-2">{data.output.map(x=><Row key={x.id} label={x.name} value={`${x.value} ${x.unit}`}/>)}</div>:<p className="text-xs text-neutral-600 mt-2">No tracked quantity output this week.</p>}</section>
+  <section className="bg-neutral-900 border theme-tertiary-border rounded-xl p-4"><p className="text-[9px] uppercase tracking-widest font-bold theme-primary-text">Goal Contribution</p>{data.goalContribution?.length?<div className="mt-2">{data.goalContribution.map(x=><Row key={x.id} label={x.name} value={`+${x.points} CBE`} sub={`${x.count} linked executions`}/>)}</div>:<p className="text-xs text-neutral-600 mt-2">No linked goal activity this week.</p>}</section>
+  <section className="bg-neutral-900 border theme-tertiary-border rounded-xl p-4"><p className="text-[9px] uppercase tracking-widest font-bold theme-primary-text">Resolution Load</p><div className="grid grid-cols-3 gap-2 mt-3 text-center"><div><ArrowRight size={13} className="mx-auto text-neutral-500"/><p className="font-display font-extrabold text-xl">{data.resolutions?.tomorrow||0}</p><p className="text-[8px] uppercase text-neutral-600">Carried</p></div><div><Trash2 size={13} className="mx-auto text-neutral-500"/><p className="font-display font-extrabold text-xl">{data.resolutions?.drop||0}</p><p className="text-[8px] uppercase text-neutral-600">Dropped</p></div><div><XCircle size={13} className="mx-auto text-neutral-500"/><p className="font-display font-extrabold text-xl">{data.resolutions?.wontDo||0}</p><p className="text-[8px] uppercase text-neutral-600">Won't do</p></div></div></section>
+  <PeriodNotes title="Weekly Notes" subtitle={`Reflection · ${key}`} fields={NOTE_FIELDS} value={stored} onChange={patch=>updateWeeklyNote(key,patch)} testIdPrefix="weekly"/>
+  <section className="bg-neutral-900 border theme-tertiary-border rounded-xl p-4">{frozen?<><div className="flex items-center gap-2"><LockKeyhole size={15} className="text-emerald-400"/><div><p className="text-xs font-bold">WEEK FROZEN</p><p className="text-[9px] text-neutral-600">Metrics are preserved as a historical snapshot.</p></div></div><button onClick={unfreeze} className="w-full mt-3 border border-white/10 rounded-lg py-2 text-[9px] uppercase text-neutral-500">Reopen week</button></>:<button onClick={freeze} disabled={!live.closedDays} className="w-full theme-primary-bg rounded-lg py-3 text-[10px] uppercase font-extrabold disabled:opacity-30"><LockKeyhole size={14} className="inline mr-2"/>Close & Freeze Week</button>}</section>
+ </div>
 }
