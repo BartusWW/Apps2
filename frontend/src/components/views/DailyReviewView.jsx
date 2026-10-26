@@ -1,86 +1,10 @@
-import { useMemo } from "react";
+import { useMemo,useState } from "react";
 import { useApp } from "../../context/AppContext";
-import { CheckCircle2, Clock3, Target, TrendingDown, TrendingUp } from "lucide-react";
-
-function todayKey() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function isToday(value) {
-  if (!value) return false;
-  const d = new Date(value);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-}
-
-export default function DailyReviewView() {
-  const { entries, dailyPlans } = useApp();
-  const key = todayKey();
-  const plan = dailyPlans?.[key] || {};
-
-  const stats = useMemo(() => {
-    let positive = 0;
-    let negative = 0;
-    let minutes = 0;
-    let count = 0;
-    for (const entry of entries) {
-      if (!isToday(entry.date)) continue;
-      count += 1;
-      if (entry.type === "positive") {
-        positive += Number(entry.points) || 0;
-        minutes += Number(entry.minutes) || 0;
-      } else {
-        negative += Math.abs(Number(entry.points) || 0);
-      }
-    }
-    return { positive, negative, net: positive - negative, minutes, count };
-  }, [entries]);
-
-  const hours = Math.floor(stats.minutes / 60);
-  const mins = stats.minutes % 60;
-  const timeLabel = hours ? `${hours}h ${mins ? `${mins}m` : ""}`.trim() : `${mins}m`;
-
-  return <div className="space-y-5" data-testid="daily-review-view">
-    <header>
-      <h1 className="font-display font-extrabold text-3xl uppercase tracking-tight">Daily Review</h1>
-      <p className="text-xs uppercase tracking-widest text-neutral-500 mt-1">{key} · close the loop</p>
-    </header>
-
-    <section className="grid grid-cols-2 gap-3">
-      <div className="col-span-2 bg-neutral-900 border border-white/10 rounded-xl p-5">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-neutral-500 font-semibold">Net Points · Today</p>
-        <p className={`font-display font-extrabold text-5xl tracking-tighter mt-2 ${stats.net < 0 ? "text-red-500" : stats.net > 0 ? "text-emerald-400" : "text-white"}`}>{stats.net > 0 ? `+${stats.net}` : stats.net}</p>
-        <p className="text-xs text-neutral-500 mt-3">{stats.count} {stats.count === 1 ? "entry" : "entries"} logged</p>
-      </div>
-      <div className="bg-neutral-900 border border-white/10 rounded-xl p-4">
-        <Clock3 size={14} className="text-neutral-500" />
-        <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-2">Dev Time</p>
-        <p className="font-display font-extrabold text-3xl tracking-tighter mt-1">{timeLabel}</p>
-      </div>
-      <div className="bg-neutral-900 border border-white/10 rounded-xl p-4">
-        <Target size={14} className="text-neutral-500" />
-        <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-2">FROG / Focus</p>
-        <p className={`font-display font-extrabold text-xl uppercase tracking-tight mt-1 ${plan.completed === true ? "text-emerald-400" : plan.completed === false ? "text-red-500" : "text-neutral-300"}`}>{plan.completed === true ? "Done" : plan.completed === false ? "Missed" : "Open"}</p>
-      </div>
-    </section>
-
-    <section className="bg-neutral-900 border border-white/10 rounded-xl p-5 space-y-4">
-      <h2 className="font-display font-extrabold uppercase tracking-tight text-base">Build vs Drain</h2>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-white/10 p-4"><TrendingUp size={14} className="text-emerald-400"/><p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-2">Build</p><p className="font-display font-extrabold text-3xl text-emerald-400 mt-1">+{stats.positive}</p></div>
-        <div className="rounded-xl border border-white/10 p-4"><TrendingDown size={14} className="text-red-500"/><p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-2">Drain</p><p className="font-display font-extrabold text-3xl text-red-500 mt-1">-{stats.negative}</p></div>
-      </div>
-    </section>
-
-    <section className="bg-neutral-900 border border-white/10 rounded-xl p-5">
-      <div className="flex items-start gap-3">
-        <CheckCircle2 size={17} className={plan.completed === true ? "text-emerald-400 mt-0.5" : "text-neutral-500 mt-0.5"}/>
-        <div><p className="text-[10px] uppercase tracking-widest text-neutral-500">Today’s Focus</p><p className="text-sm text-white mt-1">{plan.focus || "No focus set for today."}</p></div>
-      </div>
-    </section>
-  </div>;
-}
+import { ChevronLeft,ChevronRight,Flame,Repeat2,ListChecks,Target,CheckCircle2,XCircle,FastForward } from "lucide-react";
+import { todayISO } from "../../lib/dateUtils";
+const R=n=>Math.round((Number(n)||0)*10)/10;
+const shift=(d,n)=>{const x=new Date(`${d}T12:00:00`);x.setDate(x.getDate()+n);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`};
+const label=d=>new Date(`${d}T12:00:00`).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"});
+export default function DailyReviewView(){const{entries,dailyPlans,actions}=useApp(),[date,setDate]=useState(todayISO()),plan=dailyPlans?.[date]||{},snap=plan.closingSnapshot||null,liveEntries=entries.filter(e=>e.date===date),dayEntries=snap?.entries||liveEntries,items=snap?.items||(Array.isArray(plan.items)?plan.items:[]),actionMap=useMemo(()=>Object.fromEntries(actions.map(a=>[a.id,a])),[actions]);const stats=useMemo(()=>{const positive=R(dayEntries.filter(e=>Number(e.points)>0).reduce((s,e)=>s+Number(e.points||0),0)),drain=R(dayEntries.filter(e=>Number(e.points)<0).reduce((s,e)=>s+Math.abs(Number(e.points||0)),0)),tasks=items.filter(i=>!i.habit),habits=items.filter(i=>i.habit),frogs=tasks.filter(i=>i.frog),done=tasks.filter(i=>i.status==="done"),doneF=frogs.filter(i=>i.status==="done"),habitDone=habits.filter(i=>i.status==="done"||dayEntries.some(e=>e.actionId===i.actionId&&e.habit)),output={};dayEntries.forEach(e=>{if(Number(e.quantity)){const a=actionMap[e.actionId],k=e.actionId||e.actionName;output[k]??={name:e.actionName||a?.name||"Output",unit:e.unit||a?.unit||"unit",q:0};output[k].q+=Number(e.quantity)}});const early=dayEntries.filter(e=>e.originalPlannedDate&&e.originalPlannedDate>date);return{positive,drain,net:R(positive-drain),tasks,habits,frogs,done,doneF,habitDone,output:Object.values(output),early}},[dayEntries,items,actionMap,date]);const closed=plan.dayStatus==="closed-complete"||!!snap,score=snap?.score??plan.dayScore;return <div className="space-y-4" data-testid="daily-review-view"><header className="flex items-end justify-between gap-3"><div><h1 className="font-display font-extrabold text-3xl uppercase tracking-tight">Daily Review</h1><p className="text-xs uppercase tracking-widest text-neutral-500 mt-1">{closed?"Frozen day snapshot":"Live day · not frozen"}</p></div>{closed&&<span className="text-[9px] uppercase text-emerald-400 font-bold"><CheckCircle2 size={12} className="inline mr-1"/>Closed</span>}</header><div className="grid grid-cols-[44px_1fr_44px] gap-2 items-center"><button onClick={()=>setDate(shift(date,-1))} className="h-11 rounded-xl border theme-tertiary-border"><ChevronLeft className="mx-auto" size={17}/></button><button onClick={()=>setDate(todayISO())} className="h-11 rounded-xl bg-neutral-900 border theme-tertiary-border text-xs font-bold uppercase">{label(date)}</button><button disabled={date>=todayISO()} onClick={()=>setDate(shift(date,1))} className="h-11 rounded-xl border theme-tertiary-border disabled:opacity-20"><ChevronRight className="mx-auto" size={17}/></button></div><section className="grid grid-cols-2 md:grid-cols-4 gap-2"><Metric icon={Target} l="Day Score" v={score??"—"}/><Metric icon={ListChecks} l="Plan" v={`${stats.done.length}/${stats.tasks.length}`}/><Metric icon={Flame} l="FROGs" v={`${stats.doneF.length}/${stats.frogs.length}`}/><Metric icon={Repeat2} l="Habits" v={`${stats.habitDone.length}/${stats.habits.length}`}/></section><section className="grid grid-cols-3 gap-2"><Small l="Earned" v={`+${snap?.earned??stats.positive}`}/><Small l="Drain" v={`-${snap?.drain??stats.drain}`}/><Small l="Net" v={(snap?R((snap.earned||0)-(snap.drain||0)):stats.net)>0?`+${snap?R((snap.earned||0)-(snap.drain||0)):stats.net}`:(snap?R((snap.earned||0)-(snap.drain||0)):stats.net)}/></section><section className="bg-neutral-900 border theme-tertiary-border rounded-xl p-4"><p className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Planned vs executed</p><div className="space-y-2 mt-3">{items.length===0?<p className="text-xs text-neutral-600">Nothing planned.</p>:items.map(i=><div key={i.id} className="flex items-center gap-2 border-b border-white/5 pb-2"><span className={i.status==="done"?"text-emerald-400":"text-neutral-600"}>{i.status==="done"?<CheckCircle2 size={14}/>:<XCircle size={14}/>}</span><span className={`flex-1 text-sm ${i.status==="done"?"":"text-neutral-500"}`}>{i.name}</span><span className="text-[9px] uppercase text-neutral-600">{i.status||"planned"}</span></div>)}</div></section>{stats.output.length>0&&<section className="bg-neutral-900 border theme-tertiary-border rounded-xl p-4"><p className="text-[10px] uppercase tracking-widest theme-primary-text font-bold">Real output</p><div className="grid grid-cols-2 gap-2 mt-3">{stats.output.map((o,i)=><div key={i} className="bg-neutral-950 rounded-xl p-3"><p className="text-[9px] text-neutral-500 uppercase">{o.name}</p><p className="font-display font-extrabold text-2xl">{R(o.q)} <span className="text-xs theme-primary-text">{o.unit}</span></p></div>)}</div></section>}{stats.early.length>0&&<section className="bg-neutral-900 border border-emerald-500/20 rounded-xl p-4"><p className="text-[10px] uppercase text-emerald-400 font-bold"><FastForward size={13} className="inline mr-1"/>Completed early</p>{stats.early.map(e=><div key={e.id} className="mt-2 text-sm flex justify-between"><span>{e.actionName}</span><span className="text-[10px] text-neutral-500">was {e.originalPlannedDate}</span></div>)}</section>}{snap&&<p className="text-[9px] text-neutral-600 text-center">Frozen at {new Date(snap.closedAt).toLocaleString()} · later Action/priority edits do not rewrite this review.</p>}</div>}
+function Metric({icon:I,l,v}){return <div className="bg-neutral-900 border theme-tertiary-border rounded-xl p-3"><I size={14} className="theme-primary-text"/><p className="text-[8px] uppercase text-neutral-600 mt-2">{l}</p><p className="font-display font-extrabold text-2xl">{v}</p></div>}
+function Small({l,v}){return <div className="bg-neutral-950 border theme-tertiary-border rounded-xl p-3 text-center"><p className="text-[8px] uppercase text-neutral-600">{l}</p><p className="font-display font-extrabold text-xl mt-1">{v}</p></div>}
