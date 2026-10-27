@@ -23,3 +23,5 @@ body{margin:0;background-color:#070707;color:#fff;font-family:'Inter',-apple-sys
 .daily-plan-compact>section>div:first-child{display:none}
 /* Restore comfortable primary action height on Today's Actions cards. */
 .daily-plan-compact article>div.border-t.p-2.flex>button.flex-1{min-height:2.5rem;padding-top:.6rem;padding-bottom:.6rem}
+/* Readability pass: secondary card data must stay readable on the dark performance theme. */
+.theme-root .text-neutral-600{color:#8d8d8d}.theme-root .text-neutral-700{color:#777}.daily-plan-compact article .text-neutral-600{color:#aaa!important;font-size:.7rem!important}.daily-plan-compact article h3{font-size:.95rem;line-height:1.2}.daily-plan-compact article svg{stroke-width:2.1}
