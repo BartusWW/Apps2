@@ -19,8 +19,8 @@ function periodBounds(date) {
   return { week: iso(monday), month: iso(month) };
 }
 
-export default function QuantityLogModal({ action, onClose, date, habitBonus = 0, frog = false, onLogged, source }) {
-  const { entries, settings, logActivity, deleteEntry } = useApp();
+export default function QuantityLogModal({ action, onClose, date, habitBonus = 0, frog: frogProp, onLogged, source }) {
+  const { entries, settings, dailyPlans, logActivity, deleteEntry } = useApp();
   const [mode, setMode] = useState("add");
   const [value, setValue] = useState("");
   const [details, setDetails] = useState({});
@@ -28,6 +28,8 @@ export default function QuantityLogModal({ action, onClose, date, habitBonus = 0
   if (!action) return null;
 
   const d = date || todayISO();
+  const plannedItem = (dailyPlans?.[d]?.items || []).find((item) => item.actionId === action.id && !item.habit);
+  const frog = typeof frogProp === "boolean" ? frogProp : !!plannedItem?.frog;
   const isPerUnit = action.scoringType === "per-unit";
   const unit = action.unit || "unit";
   const labelUnit = isPerUnit ? unit : "min";
@@ -68,7 +70,7 @@ export default function QuantityLogModal({ action, onClose, date, habitBonus = 0
       scoringType: action.scoringType,
       pointsPerUnit: isPerUnit ? Number(action.pointsPerUnit) || 0 : undefined,
       priorityPct: pct,
-      frog: !!frog,
+      frog,
       frogBonusPct: frog ? 10 : 0,
       habitBonusPct: Number(habitBonus) || 0,
       customFields: serializeLogFields(action.logFields, details),
