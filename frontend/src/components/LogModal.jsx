@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import * as Icons from "lucide-react";
 import { X, Clock, Hash } from "lucide-react";
 import { toast } from "sonner";
@@ -74,7 +74,9 @@ export default function LogModal() {
   }
 
   const Icon = Icons[action?.icon || cat.icon] || Icons.Zap;
-  const p = paletteFor(cat.color || (cat.type === "negative" ? "red" : "emerald"));
+  const p = paletteFor(
+    cat.color || (cat.type === "negative" ? "red" : "emerald")
+  );
   const subcategory = action?.subcategory || null;
   const priorityPct = getSubcategoryPriorityPercent(
     settings,
@@ -103,11 +105,10 @@ export default function LogModal() {
       )
     );
 
-  const activityStats = useMemo(() => {
-    if (!action?.id) return null;
-
+  let activityStats = null;
+  if (action?.id) {
     const starts = periodStarts();
-    const own = (entries || []).filter((e) => e.actionId === action.id);
+    const own = (entries || []).filter((entry) => entry.actionId === action.id);
     const value = (list) =>
       round1(
         list.reduce(
@@ -120,12 +121,12 @@ export default function LogModal() {
         )
       );
 
-    return {
-      today: value(own.filter((e) => e.date >= starts.today)),
-      week: value(own.filter((e) => e.date >= starts.week)),
-      month: value(own.filter((e) => e.date >= starts.month)),
+    activityStats = {
+      today: value(own.filter((entry) => entry.date >= starts.today)),
+      week: value(own.filter((entry) => entry.date >= starts.week)),
+      month: value(own.filter((entry) => entry.date >= starts.month)),
     };
-  }, [action?.id, entries, isPerUnit]);
+  }
 
   const submit = (value) => {
     const n = Number(value);
