@@ -20,8 +20,7 @@ const fixed=(id,name,category,subcategory,points,icon,outputMetric="")=>({id,nam
 const unit=(id,name,category,subcategory,pointsPerUnit,unitName,icon,outputMetric="")=>({id,name,category,subcategory,minutes:0,points:pointsPerUnit,type:"positive",icon,scoringType:"per-unit",unit:unitName,pointsPerUnit,outputMetric});
 const minute=(id,name,category,subcategory,pointsPerMinute,icon,outputMetric="")=>unit(id,name,category,subcategory,pointsPerMinute,"min",icon,outputMetric);
 
-// v2.3: Actions describe the activity, not a baked-in duration. Time-based work is scored per minute;
-// natural outputs keep their real unit (pages, km, meals, loads, etc.). Output Metric is independent of CBE scoring.
+// Defaults are seeds only. Once stored, an Action is user-owned and must not be refreshed from this list.
 export const DEFAULT_ACTIONS=[
  fixed("act-raw-video","Record RAW Video","BW Strength Systems","Content Creation",10,"Video","Raw videos recorded"),
  minute("act-script","Write Reel Script / Outline","BW Strength Systems","Content Creation",0.5,"FileText","Minutes scripting"),
@@ -33,7 +32,6 @@ export const DEFAULT_ACTIONS=[
  minute("act-coaching-plan","Coaching / Programming Work","BW Strength Systems","Coaching / Programming",0.5,"ClipboardList","Minutes coaching work"),
  minute("act-bw-research","Applied BWSS Research","BW Strength Systems","Education / Research",0.35,"Search","Minutes applied research"),
  minute("act-business-system","Business / Systems Work","BW Strength Systems","Business / Systems",0.35,"Workflow","Minutes business systems work"),
-
  fixed("act-sbd","SBD Session","Performance","Strength / SBD",25,"Dumbbell","SBD sessions"),
  fixed("act-strongman","Strongman Session","Performance","Strongman",25,"BicepsFlexed","Strongman sessions"),
  unit("act-run","Run / Conditioning","Performance","Conditioning / Running",2,"km","Activity","Kilometres run"),
@@ -41,12 +39,10 @@ export const DEFAULT_ACTIONS=[
  unit("act-ruck","Ruck","Performance","Rucking",2,"km","Backpack","Kilometres rucked"),
  minute("act-mobility","Mobility / Recovery","Performance","Mobility / Recovery",0.5,"HeartPulse","Minutes mobility"),
  fixed("act-ocr","OCR / Obstacle Skill Session","Performance","OCR / Skills",20,"Mountain","OCR sessions"),
-
  unit("act-read-10","Read","Self Development","Reading",0.5,"pages","BookOpen","Pages read"),
  minute("act-pro-study","Professional Study","Self Development","Professional Education",0.5,"GraduationCap","Minutes professional study"),
  minute("act-spanish","Spanish","Self Development","Spanish",0.35,"Languages","Minutes Spanish"),
  minute("act-reflection","Reflection / Mental Practice","Self Development","Reflection / Mental Skills",0.35,"Brain","Minutes reflection"),
-
  fixed("act-daily-review","Daily Review","Life / Systems","Planning / Reviews",5,"CalendarCheck","Daily reviews"),
  fixed("act-weekly-review","Weekly Review + Plan","Life / Systems","Planning / Reviews",15,"CalendarRange","Weekly reviews"),
  fixed("act-monthly-review","Monthly Review + Plan","Life / Systems","Planning / Reviews",25,"CalendarDays","Monthly reviews"),
@@ -58,30 +54,20 @@ export const DEFAULT_ACTIONS=[
  unit("act-meal-prep","Meal Prep","Life / Systems","Nutrition / Prep",4,"meals","CookingPot","Meals prepped"),
  fixed("act-groceries","Groceries / Food Shop","Life / Systems","Nutrition / Prep",10,"ShoppingCart","Food shops completed"),
  minute("act-life-admin","Personal Life Admin","Life / Systems","Organisation / Admin",0.35,"Files","Minutes life admin"),
-
  fixed("act-avoided-3d","Do Task Avoided 3+ Days","Discomfort / Exposure","Avoided Tasks",15,"Flame","Avoided tasks closed"),
  fixed("act-avoided-7d","Do Task Avoided 7+ Days","Discomfort / Exposure","Avoided Tasks",25,"FlameKindling","Avoided tasks closed"),
  fixed("act-avoided-30d","Do Task Avoided 30+ Days","Discomfort / Exposure","Avoided Tasks",40,"CircleAlert","Avoided tasks closed"),
  fixed("act-public-exposure","Deliberate Public / Social Exposure","Discomfort / Exposure","Social / Public Exposure",20,"Megaphone","Exposure reps"),
  fixed("act-hardship","Voluntary Hardship Challenge","Discomfort / Exposure","Voluntary Hardship",15,"Shield","Hardship challenges"),
  fixed("act-new-intimidating","Do Something Intimidating / New","Discomfort / Exposure","New / Intimidating",20,"Sparkles","New / intimidating reps"),
-
  fixed("act-frog","Complete Today’s FROG","Execution","FROG / High Impact",30,"Zap","FROGs completed"),
  fixed("act-top-before-noon","Top Task Completed Before Noon","Execution","FROG / High Impact",15,"Sun","Top tasks before noon"),
  fixed("act-long-delayed","Close a Long-delayed Commitment","Execution","Long-delayed Tasks",25,"CheckCheck","Delayed commitments closed"),
  fixed("act-3-priorities","Complete All 3 Daily Priorities","Execution","Commitments",20,"ListTodo","3-priority days")
 ];
 
-const RETIRED_DEFAULT_ACTION_IDS=new Set(["act-read-25"]);
-const DEFAULT_ACTION_IDS=new Set(DEFAULT_ACTIONS.map(a=>a.id));
-function migrateActionLibrary(actions){
- const current=Array.isArray(actions)?actions:[], custom=current.filter(a=>!DEFAULT_ACTION_IDS.has(a.id)&&!RETIRED_DEFAULT_ACTION_IDS.has(a.id));
- // v2.3 deliberately refreshes built-in Actions to the new scoring/output model while preserving user-created Actions.
- return [...DEFAULT_ACTIONS,...custom];
-}
-
 export function loadEntries(){try{const raw=localStorage.getItem(ENTRIES_KEY);return raw?JSON.parse(raw):[]}catch{return[]}} export function saveEntries(v){localStorage.setItem(ENTRIES_KEY,JSON.stringify(v))}
-export function loadActions(){try{const raw=localStorage.getItem(ACTIONS_KEY);if(!raw){localStorage.setItem(ACTIONS_KEY,JSON.stringify(DEFAULT_ACTIONS));return DEFAULT_ACTIONS}const migrated=migrateActionLibrary(JSON.parse(raw));localStorage.setItem(ACTIONS_KEY,JSON.stringify(migrated));return migrated}catch{return DEFAULT_ACTIONS}} export function saveActions(v){localStorage.setItem(ACTIONS_KEY,JSON.stringify(v))}
+export function loadActions(){try{const raw=localStorage.getItem(ACTIONS_KEY);if(!raw){const seeded=DEFAULT_ACTIONS.map(a=>({...a}));localStorage.setItem(ACTIONS_KEY,JSON.stringify(seeded));return seeded}const parsed=JSON.parse(raw);return Array.isArray(parsed)?parsed:DEFAULT_ACTIONS.map(a=>({...a}))}catch{return DEFAULT_ACTIONS.map(a=>({...a}))}} export function saveActions(v){localStorage.setItem(ACTIONS_KEY,JSON.stringify(v))}
 export function loadSettings(){try{const raw=localStorage.getItem(SETTINGS_KEY);if(!raw)return{...DEFAULT_SETTINGS};const parsed=JSON.parse(raw),cats=Array.isArray(parsed.categories)?parsed.categories:DEFAULT_CATEGORIES;const life=cats.find(c=>c.name==="Life / Systems");if(life){const names=new Set((life.subcategories||[]).map(s=>typeof s==="string"?s:s.name));for(const name of ["Home / Maintenance","Nutrition / Prep"])if(!names.has(name))life.subcategories=[...(life.subcategories||[]),{name,active:true}]}return{...DEFAULT_SETTINGS,...parsed,categories:cats}}catch{return{...DEFAULT_SETTINGS}}} export function saveSettings(v){localStorage.setItem(SETTINGS_KEY,JSON.stringify(v))}
 export function loadNotes(){try{const r=localStorage.getItem(NOTES_KEY),p=r?JSON.parse(r):{};return{weekly:p.weekly||{},monthly:p.monthly||{}}}catch{return{weekly:{},monthly:{}}}} export function saveNotes(v){localStorage.setItem(NOTES_KEY,JSON.stringify(v))}
 export function loadDailyPlans(){try{const r=localStorage.getItem(DAILY_PLANS_KEY);return r?JSON.parse(r):{}}catch{return{}}} export function saveDailyPlans(v){localStorage.setItem(DAILY_PLANS_KEY,JSON.stringify(v))}
