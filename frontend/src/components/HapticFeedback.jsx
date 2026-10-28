@@ -8,7 +8,8 @@ export default function HapticFeedback(){
    const button=e.target?.closest?.("button");
    if(!button||button.disabled||typeof navigator==="undefined"||typeof navigator.vibrate!=="function")return;
    const label=(button.textContent||"").trim().toLowerCase().replace(/\s+/g," ");
-   if(button.dataset.haptic==="success"||SUCCESS_LABELS.some(x=>label===x||label.startsWith(`${x} `)))navigator.vibrate(35);
+   const quickLogPreset=!!button.closest(".fixed")&&/^\d+(?:\.\d+)?(?:\s|\+|$)/.test(label);
+   if(button.dataset.haptic==="success"||quickLogPreset||SUCCESS_LABELS.some(x=>label===x||label.startsWith(`${x} `)))navigator.vibrate(35);
   };
   document.addEventListener("click",onClick,true);
   return()=>document.removeEventListener("click",onClick,true);
