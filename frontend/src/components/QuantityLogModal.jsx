@@ -19,7 +19,7 @@ function periodBounds(date) {
   return { week: iso(monday), month: iso(month) };
 }
 
-export default function QuantityLogModal({ action, onClose, date, habitBonus = 0, onLogged, source }) {
+export default function QuantityLogModal({ action, onClose, date, habitBonus = 0, frog = false, onLogged, source }) {
   const { entries, settings, logActivity, deleteEntry } = useApp();
   const [mode, setMode] = useState("add");
   const [value, setValue] = useState("");
@@ -40,10 +40,11 @@ export default function QuantityLogModal({ action, onClose, date, habitBonus = 0
   const raw = Math.max(0, Number(value) || 0);
   const qty = mode === "overall" ? Math.max(0, raw - today) : raw;
   const pct = getSubcategoryPriorityPercent(settings, action.category, action.subcategory);
+  const bonusMultiplier = (frog ? 1.1 : 1) * (1 + Number(habitBonus || 0) / 100);
   const basePoints = isPerUnit
     ? qty * (Number(action.pointsPerUnit) || 0)
     : (qty / 30) * (Number(action.points) || 0);
-  const pts = r(applyPriorityMultiplier(basePoints, action.category, action.subcategory, settings) * (1 + Number(habitBonus || 0) / 100));
+  const pts = r(applyPriorityMultiplier(basePoints, action.category, action.subcategory, settings) * bonusMultiplier);
 
   const submit = (input = value) => {
     const entered = Math.max(0, Number(input) || 0);
@@ -52,7 +53,7 @@ export default function QuantityLogModal({ action, onClose, date, habitBonus = 0
     const base = isPerUnit
       ? toLog * (Number(action.pointsPerUnit) || 0)
       : (toLog / 30) * (Number(action.points) || 0);
-    const points = r(applyPriorityMultiplier(base, action.category, action.subcategory, settings) * (1 + Number(habitBonus || 0) / 100));
+    const points = r(applyPriorityMultiplier(base, action.category, action.subcategory, settings) * bonusMultiplier);
     const e = logActivity({
       actionId: action.id,
       actionName: action.name,
@@ -67,6 +68,8 @@ export default function QuantityLogModal({ action, onClose, date, habitBonus = 0
       scoringType: action.scoringType,
       pointsPerUnit: isPerUnit ? Number(action.pointsPerUnit) || 0 : undefined,
       priorityPct: pct,
+      frog: !!frog,
+      frogBonusPct: frog ? 10 : 0,
       habitBonusPct: Number(habitBonus) || 0,
       customFields: serializeLogFields(action.logFields, details),
       outputMetric: action.outputMetric || null,
@@ -91,7 +94,7 @@ export default function QuantityLogModal({ action, onClose, date, habitBonus = 0
           <div>
             <p className="text-[9px] uppercase theme-primary-text">{isPerUnit ? "Variable Action" : "Timed Action"}</p>
             <h3 className="font-display font-extrabold text-xl uppercase">{action.name}</h3>
-            <p className="text-xs text-neutral-500">{rateLabel} · today {r(today)} {labelUnit}</p>
+            <p className="text-xs text-neutral-500">{rateLabel} · today {r(today)} {labelUnit}{frog ? " · FROG +10%" : ""}</p>
           </div>
           <button onClick={onClose}><X size={16} /></button>
         </div>
