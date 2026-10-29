@@ -13,10 +13,11 @@ export const WEEKLY_PRODUCTIVITY_LEVELS=[
  {id:"ambitious",label:"Ambitious",min:1100},
 ];
 export const r1=n=>Math.round((Number(n)||0)*10)/10;
+export function dailyProductivityLevels(settings){const raw=settings?.productivityThresholds||{};let last=0;return PRODUCTIVITY_LEVELS.map((x,i)=>{if(i===0)return{...x,min:0};const n=Math.max(last,Number(raw[x.id]??x.min)||0);last=n;return{...x,min:n}})}
 export function levelFor(value,levels=PRODUCTIVITY_LEVELS){const n=Math.max(0,Number(value)||0);return [...levels].reverse().find(x=>n>=x.min)||levels[0]}
 export function nextLevelFor(value,levels=PRODUCTIVITY_LEVELS){const n=Math.max(0,Number(value)||0);return levels.find(x=>x.min>n)||null}
-export const productivityLevel=value=>levelFor(value,PRODUCTIVITY_LEVELS);
-export const nextProductivityLevel=value=>nextLevelFor(value,PRODUCTIVITY_LEVELS);
+export const productivityLevel=(value,levels=PRODUCTIVITY_LEVELS)=>levelFor(value,levels);
+export const nextProductivityLevel=(value,levels=PRODUCTIVITY_LEVELS)=>nextLevelFor(value,levels);
 export function ambitionTiers(action){return [
  {id:"ambitious",label:"Ambitious",target:Number(action?.ambition?.ambitiousTarget)||0,bonus:Number(action?.ambition?.ambitiousBonus)||0},
  {id:"very-ambitious",label:"Very Ambitious",target:Number(action?.ambition?.veryAmbitiousTarget)||0,bonus:Number(action?.ambition?.veryAmbitiousBonus)||0},
