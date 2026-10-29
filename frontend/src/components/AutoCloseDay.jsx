@@ -1,0 +1,30 @@
+import { useEffect } from "react";
+import { useApp } from "../context/AppContext";
+import { todayISO } from "../lib/dateUtils";
+
+const R=n=>Math.round((Number(n)||0)*10)/10;
+const nextDay=d=>{const x=new Date(`${d}T12:00:00`);x.setDate(x.getDate()+1);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`};
+const totalOf=i=>Math.max(1,Number(i.stackCount)||1),doneOf=i=>Math.min(totalOf(i),Math.max(0,Number(i.stackDone)||0));
+
+export default function AutoCloseDay(){
+ const{dailyPlans,updateDailyPlan,entries,actions,settings}=useApp();
+ useEffect(()=>{
+  if(!settings?.autoCloseDayEnabled)return;
+  const actionMap=Object.fromEntries((actions||[]).map(a=>[a.id,a]));
+  const recurringMap=Object.fromEntries((settings?.recurringTasks||[]).map(r=>[r.id,r]));
+  const today=todayISO(),now=new Date(),closeTime=settings.autoCloseDayTime||"23:59";
+  const due=Object.entries(dailyPlans||{}).filter(([date,p])=>p?.dayStatus==="open"&&(date<today||(date===today&&now.toTimeString().slice(0,5)>=closeTime)));
+  for(const[date,plan]of due){
+   if(plan.autoClosedAt||plan.dayStatus==="closed-complete")continue;
+   const items=Array.isArray(plan.items)?plan.items:[],dayEntries=(entries||[]).filter(e=>e.date===date),quantityFor=i=>R(dayEntries.filter(e=>e.actionId===i.actionId).reduce((s,e)=>s+(Number(e.quantity)||0),0));
+   const itemTarget=i=>{const a=actionMap[i.actionId],target=Number(i.habitAmount)||0,priority=(Number(i.priorityPct)||100)/100,frog=i.frog?1.1:1,rule=i.recurringId?recurringMap[i.recurringId]:null,habitBonus=i.habit?1+(Number(rule?.habit?.bonusPct??i.habitBonusPct)||0)/100:1;if(a?.scoringType==="per-unit"&&target>0)return R(Math.max(0,Number(a.points)||0)*target*priority*frog*habitBonus);return R(Math.max(0,Number(i.points)||0)*frog*habitBonus)};
+   const taskComplete=i=>i.status==="done"||(actionMap[i.actionId]?.scoringType==="per-unit"&&Number(i.habitAmount)>0&&quantityFor(i)>=Number(i.habitAmount));
+   const tasks=items.filter(i=>!i.habit),habits=items.filter(i=>i.habit),habitDone=habits.filter(i=>i.status==="done"||(Number(i.habitAmount)>0&&quantityFor(i)>=Number(i.habitAmount))||dayEntries.some(e=>e.actionId===i.actionId&&e.habit)),taskTotal=tasks.reduce((s,i)=>s+totalOf(i),0),taskDone=tasks.reduce((s,i)=>s+(taskComplete(i)?totalOf(i):doneOf(i)),0),frogs=tasks.filter(i=>i.frog),frogTotal=frogs.reduce((s,i)=>s+totalOf(i),0),frogDone=frogs.reduce((s,i)=>s+(taskComplete(i)?totalOf(i):doneOf(i)),0),earned=R(dayEntries.filter(e=>Number(e.points)>0).reduce((s,e)=>s+Number(e.points||0),0)),drain=R(dayEntries.filter(e=>Number(e.points)<0).reduce((s,e)=>s+Math.abs(Number(e.points||0)),0)),plannedPotential=R(items.reduce((s,i)=>s+itemTarget(i)*(i.habit?1:totalOf(i)),0)),execution=taskTotal?taskDone/taskTotal*100:100,frogScore=frogTotal?frogDone/frogTotal*100:100,habitScore=habits.length?habitDone.length/habits.length*100:100,score=R(execution*.4+frogScore*.4+habitScore*.2),closedAt=new Date().toISOString();
+   const moves=[],finalItems=items.map(i=>{if(i.habit&&!habitDone.some(h=>h.id===i.id))return{...i,status:"missed",missFinalizedAt:closedAt,autoFinalized:true};if(i.habit||taskComplete(i))return taskComplete(i)&&!i.habit?{...i,status:"done",stackDone:totalOf(i),completedAt:i.completedAt||closedAt}:i;const a=actionMap[i.actionId],remainingCount=Math.max(0,totalOf(i)-doneOf(i)),remainingUnits=a?.scoringType==="per-unit"&&Number(i.habitAmount)>0?R(Math.max(0,Number(i.habitAmount)-quantityFor(i))):null;if((settings.autoCarryTasks??true)&&remainingCount>0&&(remainingUnits===null||remainingUnits>0)){moves.push({...i,id:`auto-${date}-${i.id}`,stackCount:remainingCount,stackDone:0,status:"planned",frog:false,habitAmount:remainingUnits===null?i.habitAmount:remainingUnits,carriedFrom:date,carryCount:(Number(i.carryCount)||0)+1,autoCarried:true,createdAt:closedAt})}return{...i,status:"resolved",resolvedAs:{tomorrow:(settings.autoCarryTasks??true)?remainingCount:0,drop:(settings.autoCarryTasks??true)?0:remainingCount,wontDo:0},resolvedAt:closedAt}});
+   if(moves.length){const td=nextDay(date),tp=dailyPlans[td]||{},next=[...(Array.isArray(tp.items)?tp.items:[])];for(const m of moves){if(next.some(x=>x.autoCarried&&x.carriedFrom===date&&x.actionId===m.actionId))continue;const idx=next.findIndex(x=>x.actionId===m.actionId&&!x.habit),a=actionMap[m.actionId];if(idx<0)next.push(m);else if(a?.scoringType==="per-unit")next[idx]={...next[idx],habitAmount:R((Number(next[idx].habitAmount)||0)+(Number(m.habitAmount)||0)),carryCount:Math.max(Number(next[idx].carryCount)||0,Number(m.carryCount)||0),status:"planned"};else next[idx]={...next[idx],stackCount:Math.max(1,Number(next[idx].stackCount)||1)+totalOf(m),carryCount:Math.max(Number(next[idx].carryCount)||0,Number(m.carryCount)||0),status:"planned"}}updateDailyPlan(td,{items:next})}
+   const plannedIds=new Set(tasks.map(i=>i.actionId).filter(Boolean)),snapshot={date,closedAt,autoClosed:true,score,earned,drain,potential:R(Math.max(0,plannedPotential-earned)),over:R(Math.max(0,earned-plannedPotential)),plannedPotential,tasksDone:taskDone,tasksTotal:taskTotal,otherTasksDone:new Set(dayEntries.filter(e=>e.source==="log-actions"&&!plannedIds.has(e.actionId)).map(e=>e.actionId||e.id)).size,frogsDone:frogDone,frogsTotal:frogTotal,habitsDone:habitDone.length,habitsTotal:habits.length,items:finalItems.map(i=>({...i})),entries:dayEntries.map(e=>({...e}))};
+   updateDailyPlan(date,{items:finalItems,dayStatus:"closed-complete",closedAt,autoClosedAt:closedAt,dayScore:score,closingSnapshot:snapshot});
+  }
+ },[dailyPlans,entries,actions,settings,updateDailyPlan]);
+ return null;
+}
