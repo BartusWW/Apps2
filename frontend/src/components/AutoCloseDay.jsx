@@ -7,13 +7,14 @@ const nextDay=d=>{const x=new Date(`${d}T12:00:00`);x.setDate(x.getDate()+1);ret
 const totalOf=i=>Math.max(1,Number(i.stackCount)||1),doneOf=i=>Math.min(totalOf(i),Math.max(0,Number(i.stackDone)||0));
 
 export default function AutoCloseDay(){
- const{dailyPlans,updateDailyPlan,entries,actions,settings}=useApp();
+ const{dailyPlans,updateDailyPlan,entries,actions,settings,updateSettings}=useApp();
  useEffect(()=>{
-  if(!settings?.autoCloseDayEnabled)return;
+  const debugForce=!!settings?.debugForceAutoCloseAt;
+  if(!settings?.autoCloseDayEnabled&&!debugForce)return;
   const actionMap=Object.fromEntries((actions||[]).map(a=>[a.id,a]));
   const recurringMap=Object.fromEntries((settings?.recurringTasks||[]).map(r=>[r.id,r]));
   const today=todayISO(),now=new Date(),closeTime=settings.autoCloseDayTime||"23:59";
-  const due=Object.entries(dailyPlans||{}).filter(([date,p])=>p?.dayStatus==="open"&&(date<today||(date===today&&now.toTimeString().slice(0,5)>=closeTime)));
+  const due=Object.entries(dailyPlans||{}).filter(([date,p])=>p?.dayStatus==="open"&&(debugForce?date===today:(date<today||(date===today&&now.toTimeString().slice(0,5)>=closeTime))));
   for(const[date,plan]of due){
    if(plan.autoClosedAt||plan.dayStatus==="closed-complete")continue;
    const items=Array.isArray(plan.items)?plan.items:[],dayEntries=(entries||[]).filter(e=>e.date===date),quantityFor=i=>R(dayEntries.filter(e=>e.actionId===i.actionId).reduce((s,e)=>s+(Number(e.quantity)||0),0));
@@ -25,9 +26,10 @@ export default function AutoCloseDay(){
    for(const r of recoveries){const idx=next.findIndex(x=>x.habit&&x.actionId===r.actionId);if(idx>=0)next[idx]={...next[idx],habitAmount:r.habitAmount,recoveryActive:true,recoveryBaseTarget:r.recoveryBaseTarget,recoveryDebt:r.recoveryDebt,recoveryFrom:r.recoveryFrom,recoveryAutoAccepted:true,status:"planned"};else next.push(r)}
    for(const m of moves){if(next.some(x=>x.autoCarried&&x.carriedFrom===date&&x.actionId===m.actionId))continue;const idx=next.findIndex(x=>x.actionId===m.actionId&&!x.habit),a=actionMap[m.actionId];if(idx<0)next.push(m);else if(a?.scoringType==="per-unit")next[idx]={...next[idx],habitAmount:R((Number(next[idx].habitAmount)||0)+(Number(m.habitAmount)||0)),carryCount:Math.max(Number(next[idx].carryCount)||0,Number(m.carryCount)||0),status:"planned"};else next[idx]={...next[idx],stackCount:Math.max(1,Number(next[idx].stackCount)||1)+totalOf(m),carryCount:Math.max(Number(next[idx].carryCount)||0,Number(m.carryCount)||0),status:"planned"}}
    if(moves.length||recoveries.length)updateDailyPlan(td,{items:next});
-   const plannedIds=new Set(tasks.map(i=>i.actionId).filter(Boolean)),snapshot={date,closedAt,autoClosed:true,score,earned,drain,potential:R(Math.max(0,plannedPotential-earned)),over:R(Math.max(0,earned-plannedPotential)),plannedPotential,tasksDone:taskDone,tasksTotal:taskTotal,otherTasksDone:new Set(dayEntries.filter(e=>e.source==="log-actions"&&!plannedIds.has(e.actionId)).map(e=>e.actionId||e.id)).size,frogsDone:frogDone,frogsTotal:frogTotal,habitsDone:habitDone.length,habitsTotal:habits.length,habitRecoveriesStarted:recoveries.length,items:finalItems.map(i=>({...i})),entries:dayEntries.map(e=>({...e}))};
+   const plannedIds=new Set(tasks.map(i=>i.actionId).filter(Boolean)),snapshot={date,closedAt,autoClosed:true,debugForced:debugForce,score,earned,drain,potential:R(Math.max(0,plannedPotential-earned)),over:R(Math.max(0,earned-plannedPotential)),plannedPotential,tasksDone:taskDone,tasksTotal:taskTotal,otherTasksDone:new Set(dayEntries.filter(e=>e.source==="log-actions"&&!plannedIds.has(e.actionId)).map(e=>e.actionId||e.id)).size,frogsDone:frogDone,frogsTotal:frogTotal,habitsDone:habitDone.length,habitsTotal:habits.length,habitRecoveriesStarted:recoveries.length,items:finalItems.map(i=>({...i})),entries:dayEntries.map(e=>({...e}))};
    updateDailyPlan(date,{items:finalItems,dayStatus:"closed-complete",closedAt,autoClosedAt:closedAt,dayScore:score,closingSnapshot:snapshot});
   }
- },[dailyPlans,entries,actions,settings,updateDailyPlan]);
+  if(debugForce)updateSettings({debugForceAutoCloseAt:null});
+ },[dailyPlans,entries,actions,settings,updateDailyPlan,updateSettings]);
  return null;
 }
