@@ -5,9 +5,18 @@ export const PRODUCTIVITY_LEVELS=[
  {id:"very-high",label:"Very High",min:150},
  {id:"ambitious",label:"Ambitious",min:220},
 ];
+export const WEEKLY_PRODUCTIVITY_LEVELS=[
+ {id:"low",label:"Low",min:0},
+ {id:"average",label:"Average",min:300},
+ {id:"high",label:"High",min:500},
+ {id:"very-high",label:"Very High",min:750},
+ {id:"ambitious",label:"Ambitious",min:1100},
+];
 export const r1=n=>Math.round((Number(n)||0)*10)/10;
-export function productivityLevel(value){const n=Math.max(0,Number(value)||0);return [...PRODUCTIVITY_LEVELS].reverse().find(x=>n>=x.min)||PRODUCTIVITY_LEVELS[0]}
-export function nextProductivityLevel(value){const n=Math.max(0,Number(value)||0);return PRODUCTIVITY_LEVELS.find(x=>x.min>n)||null}
+export function levelFor(value,levels=PRODUCTIVITY_LEVELS){const n=Math.max(0,Number(value)||0);return [...levels].reverse().find(x=>n>=x.min)||levels[0]}
+export function nextLevelFor(value,levels=PRODUCTIVITY_LEVELS){const n=Math.max(0,Number(value)||0);return levels.find(x=>x.min>n)||null}
+export const productivityLevel=value=>levelFor(value,PRODUCTIVITY_LEVELS);
+export const nextProductivityLevel=value=>nextLevelFor(value,PRODUCTIVITY_LEVELS);
 export function ambitionTiers(action){return [
  {id:"ambitious",label:"Ambitious",target:Number(action?.ambition?.ambitiousTarget)||0,bonus:Number(action?.ambition?.ambitiousBonus)||0},
  {id:"very-ambitious",label:"Very Ambitious",target:Number(action?.ambition?.veryAmbitiousTarget)||0,bonus:Number(action?.ambition?.veryAmbitiousBonus)||0},
