@@ -55,4 +55,21 @@ export default function OutputMetricsView(){
   </section>;
 }
 
-function OutputCard({row:x,rank,period,favorite,onFavorite,onHide}){const trend=x.current>x.previous?"up":x.current<x.previous?"down":"flat",Icon=trend==="up"?ArrowUpRight:trend==="down"?ArrowDownRight:Minus,progress=x.target>0?Math.min(100,Math.round(x.current/x.target*100)):0;return <article className="bg-neutral-900 border theme-tertiary-border rounded-xl p-3"><div className="flex gap-2"><span className="text-[10px] text-neutral-500">#{rank}</span><div className="flex-1 min-w-0"><div className="flex justify-between gap-2"><div className="min-w-0"><p className="text-sm font-semibold">{x.label}</p><p className="text-[9px] text-neutral-600 uppercase truncate">{x.a.name}</p></div><div className="text-right shrink-0"><p className="font-display font-black text-xl theme-primary-text">{x.current} {x.unit}</p>{period!=="all"&&<p className="text-[9px] text-neutral-500"><Icon size={10} className="inline"/> {x.previous}</p>}</div></div>{x.target>0&&<div className="mt-2"><p className="text-[9px] text-right">{x.current}/{x.target} {x.unit}</p><div className="h-1.5 bg-neutral-950 rounded"><div className="h-full theme-primary-bg rounded" style={{width:`${progress}%`}}/></div></div>}</div></div><div className="flex flex-col -my-1"><button onClick={onFavorite} className={`p-1.5 ${favorite?"theme-primary-text":"text-neutral-600"}`} aria-label="Favorite"><Star size={15} fill={favorite?"currentColor":"none"}/></button><button onClick={onHide} className="p-1.5 text-neutral-600 hover:text-red-400" aria-label="Hide from Output"><X size={15}/></button></div></div></article>}
+function OutputCard({row:x,rank,period,favorite,onFavorite,onHide}){
+  const trend=x.current>x.previous?"up":x.current<x.previous?"down":"flat";
+  const Icon=trend==="up"?ArrowUpRight:trend==="down"?ArrowDownRight:Minus;
+  const progress=x.target>0?Math.min(100,Math.round(x.current/x.target*100)):0;
+  return <article className="bg-neutral-900 border theme-tertiary-border rounded-xl p-3">
+    <div className="flex gap-2">
+      <span className="text-[10px] text-neutral-500">#{rank}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between gap-2">
+          <div className="min-w-0"><p className="text-sm font-semibold">{x.label}</p><p className="text-[9px] text-neutral-600 uppercase truncate">{x.a.name}</p></div>
+          <div className="text-right shrink-0"><p className="font-display font-black text-xl theme-primary-text">{x.current} {x.unit}</p>{period!=="all"&&<p className="text-[9px] text-neutral-500"><Icon size={10} className="inline"/> {x.previous}</p>}</div>
+        </div>
+        {x.target>0&&<div className="mt-2"><p className="text-[9px] text-right">{x.current}/{x.target} {x.unit}</p><div className="h-1.5 bg-neutral-950 rounded"><div className="h-full theme-primary-bg rounded" style={{width:`${progress}%`}}/></div></div>}
+      </div>
+      <div className="flex flex-col -my-1"><button onClick={onFavorite} className={`p-1.5 ${favorite?"theme-primary-text":"text-neutral-600"}`} aria-label="Favorite"><Star size={15} fill={favorite?"currentColor":"none"}/></button><button onClick={onHide} className="p-1.5 text-neutral-600 hover:text-red-400" aria-label="Hide from Output"><X size={15}/></button></div>
+    </div>
+  </article>;
+}
