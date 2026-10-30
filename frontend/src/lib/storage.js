@@ -16,58 +16,62 @@ export const DEFAULT_PRIORITY_PROFILES=[
 {id:"performance-block",name:"Performance Block",description:"Put physical performance first: strength, strongman, conditioning, rucking and athletic capability.",categoryPriorities:{"BW Strength Systems":80,Performance:120,"Self Development":70,"Life / Systems":70,"Discomfort / Exposure":90,Execution:100},subcategoryPriorities:{"Performance::Strength / SBD":170,"Performance::Strongman":130,"Performance::Conditioning / Running":130,"Performance::Rucking":110,"Performance::Mobility / Recovery":90,"Performance::OCR / Skills":80}}];
 export const DEFAULT_SETTINGS={weeklyGoalMinutes:1200,reminderEnabled:false,reminderTime:"20:00",lastReminderDate:null,allocationTargets:{},priorityProfiles:DEFAULT_PRIORITY_PROFILES,activePriorityProfileId:"base",theme:{...DEFAULT_THEME},habits:[],categories:DEFAULT_CATEGORIES,pinnedCategories:[],pinnedActionIds:["act-publish-reel","act-raw-video","act-sbd","act-meal-prep"],collapsedCategories:[],homeLayout:[{id:"carousel",visible:true},{id:"dailyPlan",visible:true},{id:"nextDeadline",visible:true},{id:"pinnedGoals",visible:true},{id:"pinned",visible:true},{id:"habits",visible:true}]};
 
-const fixed=(id,name,category,subcategory,points,icon,outputMetric="")=>({id,name,category,subcategory,minutes:0,points,type:"positive",icon,scoringType:"fixed",outputMetric});
-const unit=(id,name,category,subcategory,pointsPerUnit,unitName,icon,outputMetric="")=>({id,name,category,subcategory,minutes:0,points:pointsPerUnit,type:"positive",icon,scoringType:"per-unit",unit:unitName,pointsPerUnit,outputMetric});
-const minute=(id,name,category,subcategory,pointsPerMinute,icon,outputMetric="")=>unit(id,name,category,subcategory,pointsPerMinute,"min",icon,outputMetric);
+const ambition=(ambitiousTarget,ambitiousBonus,veryAmbitiousTarget,veryAmbitiousBonus)=>({enabled:true,ambitiousTarget,ambitiousBonus,veryAmbitiousTarget,veryAmbitiousBonus});
+const field=(id,name,type="number",unit="")=>({id,name,type,unit});
+const fixed=(id,name,category,subcategory,points,icon,outputMetric="",extra={})=>({id,name,category,subcategory,minutes:0,points,type:"positive",icon,scoringType:"fixed",unit:"completion",pointsPerUnit:0,outputMetric,showInOutput:false,logFields:[],...extra});
+const unit=(id,name,category,subcategory,pointsPerUnit,unitName,icon,outputMetric="",extra={})=>({id,name,category,subcategory,minutes:0,points:pointsPerUnit,type:"positive",icon,scoringType:"per-unit",unit:unitName,pointsPerUnit,outputMetric,showInOutput:false,logFields:[],...extra});
+const minute=(id,name,category,subcategory,pointsPerMinute,icon,outputMetric="",extra={})=>unit(id,name,category,subcategory,pointsPerMinute,"min",icon,outputMetric,extra);
 
-// Defaults are seeds only. Once stored, an Action is user-owned and must not be refreshed from this list.
+// Defaults are seeds. Existing user-owned values are preserved; newly introduced metadata is only backfilled when absent.
 export const DEFAULT_ACTIONS=[
- fixed("act-raw-video","Record RAW Video","BW Strength Systems","Content Creation",10,"Video","Raw videos recorded"),
- minute("act-script","Write Reel Script / Outline","BW Strength Systems","Content Creation",0.5,"FileText","Minutes scripting"),
- minute("act-edit-reel","Edit Reel","BW Strength Systems","Content Creation",0.5,"Clapperboard","Minutes editing"),
- fixed("act-publish-reel","Publish Reel","BW Strength Systems","Publishing / Exposure",30,"Rocket","Reels published"),
- fixed("act-publish-carousel","Publish Carousel / Post","BW Strength Systems","Publishing / Exposure",25,"PanelsTopLeft","Posts published"),
- minute("act-product-work","Product Development","BW Strength Systems","Product Development",0.5,"Package","Minutes product development"),
- fixed("act-product-milestone","Finish Product Milestone","BW Strength Systems","Product Development",35,"Flag","Product milestones shipped"),
- minute("act-coaching-plan","Coaching / Programming Work","BW Strength Systems","Coaching / Programming",0.5,"ClipboardList","Minutes coaching work"),
- minute("act-bw-research","Applied BWSS Research","BW Strength Systems","Education / Research",0.35,"Search","Minutes applied research"),
- minute("act-business-system","Business / Systems Work","BW Strength Systems","Business / Systems",0.35,"Workflow","Minutes business systems work"),
- fixed("act-sbd","SBD Session","Performance","Strength / SBD",25,"Dumbbell","SBD sessions"),
- fixed("act-strongman","Strongman Session","Performance","Strongman",25,"BicepsFlexed","Strongman sessions"),
- unit("act-run","Run / Conditioning","Performance","Conditioning / Running",2,"km","Activity","Kilometres run"),
- fixed("act-intervals","Intervals / Hard Conditioning","Performance","Conditioning / Running",20,"Gauge","Conditioning sessions"),
- unit("act-ruck","Ruck","Performance","Rucking",2,"km","Backpack","Kilometres rucked"),
- minute("act-mobility","Mobility / Recovery","Performance","Mobility / Recovery",0.5,"HeartPulse","Minutes mobility"),
- fixed("act-ocr","OCR / Obstacle Skill Session","Performance","OCR / Skills",20,"Mountain","OCR sessions"),
- unit("act-read-10","Read","Self Development","Reading",0.5,"pages","BookOpen","Pages read"),
- minute("act-pro-study","Professional Study","Self Development","Professional Education",0.5,"GraduationCap","Minutes professional study"),
- minute("act-spanish","Spanish","Self Development","Spanish",0.35,"Languages","Minutes Spanish"),
- minute("act-reflection","Reflection / Mental Practice","Self Development","Reflection / Mental Skills",0.35,"Brain","Minutes reflection"),
- fixed("act-daily-review","Daily Review","Life / Systems","Planning / Reviews",5,"CalendarCheck","Daily reviews"),
- fixed("act-weekly-review","Weekly Review + Plan","Life / Systems","Planning / Reviews",15,"CalendarRange","Weekly reviews"),
- fixed("act-monthly-review","Monthly Review + Plan","Life / Systems","Planning / Reviews",25,"CalendarDays","Monthly reviews"),
- minute("act-admin","Admin / Organisation","Life / Systems","Organisation / Admin",0.35,"FolderCog","Minutes admin"),
- minute("act-personal-project","Personal Project","Life / Systems","Personal Projects",0.35,"Wrench","Minutes personal projects"),
+ fixed("act-raw-video","Record RAW Video","BW Strength Systems","Content Creation",10,"Video","Raw videos recorded",{showInOutput:true}),
+ minute("act-script","Write Reel Script / Outline","BW Strength Systems","Content Creation",0.5,"FileText","Minutes scripting",{showInOutput:true,ambition:ambition(60,10,120,20)}),
+ minute("act-edit-reel","Edit Reel","BW Strength Systems","Content Creation",0.5,"Clapperboard","Minutes editing",{showInOutput:true,ambition:ambition(60,10,120,20)}),
+ fixed("act-publish-reel","Publish Reel","BW Strength Systems","Publishing / Exposure",30,"Rocket","Reels published",{showInOutput:true}),
+ fixed("act-publish-carousel","Publish Carousel / Post","BW Strength Systems","Publishing / Exposure",25,"PanelsTopLeft","Posts published",{showInOutput:true}),
+ minute("act-product-work","Product Development","BW Strength Systems","Product Development",0.5,"Package","Minutes product development",{showInOutput:true,ambition:ambition(60,10,120,25)}),
+ fixed("act-product-milestone","Finish Product Milestone","BW Strength Systems","Product Development",35,"Flag","Product milestones shipped",{showInOutput:true}),
+ minute("act-coaching-plan","Coaching / Programming Work","BW Strength Systems","Coaching / Programming",0.5,"ClipboardList","Minutes coaching work",{showInOutput:true,ambition:ambition(60,10,120,20)}),
+ minute("act-bw-research","Applied BWSS Research","BW Strength Systems","Education / Research",0.35,"Search","Minutes applied research",{ambition:ambition(45,8,90,16)}),
+ minute("act-business-system","Business / Systems Work","BW Strength Systems","Business / Systems",0.35,"Workflow","Minutes business systems work",{showInOutput:true,ambition:ambition(45,8,90,16)}),
+ fixed("act-sbd","SBD Session","Performance","Strength / SBD",25,"Dumbbell","SBD sessions",{showInOutput:true,logFields:[field("fld-sbd-duration","Session duration","number","min"),field("fld-sbd-note","Top set / highlight","text")]}),
+ fixed("act-strongman","Strongman Session","Performance","Strongman",25,"BicepsFlexed","Strongman sessions",{showInOutput:true,logFields:[field("fld-strongman-duration","Session duration","number","min"),field("fld-strongman-note","Main event / highlight","text")]}),
+ unit("act-run","Run / Conditioning","Performance","Conditioning / Running",2,"km","Activity","Kilometres run",{showInOutput:true,logFields:[field("fld-run-duration","Duration","duration"),field("fld-run-pace","Avg pace","pace","min/km"),field("fld-run-hr","Avg HR","number","bpm")],ambition:ambition(5,10,10,25)}),
+ fixed("act-intervals","Intervals / Hard Conditioning","Performance","Conditioning / Running",20,"Gauge","Conditioning sessions",{showInOutput:true,logFields:[field("fld-intervals-duration","Duration","number","min"),field("fld-intervals-rounds","Intervals / rounds","number","reps")]}),
+ unit("act-ruck","Ruck","Performance","Rucking",2,"km","Backpack","Kilometres rucked",{showInOutput:true,logFields:[field("fld-ruck-duration","Duration","duration"),field("fld-ruck-pace","Avg pace","pace","min/km"),field("fld-ruck-pack","Pack weight","number","kg"),field("fld-ruck-elevation","Elevation gain","number","m"),field("fld-ruck-hr","Avg HR","number","bpm")],ambition:ambition(10,15,15,30)}),
+ minute("act-mobility","Mobility / Recovery","Performance","Mobility / Recovery",0.5,"HeartPulse","Minutes mobility",{showInOutput:true,ambition:ambition(20,5,40,10)}),
+ fixed("act-ocr","OCR / Obstacle Skill Session","Performance","OCR / Skills",20,"Mountain","OCR sessions",{showInOutput:true,logFields:[field("fld-ocr-duration","Session duration","number","min"),field("fld-ocr-focus","Skill focus","text")]}),
+ unit("act-read-10","Read","Self Development","Reading",0.5,"pages","BookOpen","Pages read",{showInOutput:true,logFields:[field("fld-read-book","Book","text")],ambition:ambition(30,8,60,18)}),
+ minute("act-pro-study","Professional Study","Self Development","Professional Education",0.5,"GraduationCap","Minutes professional study",{showInOutput:true,logFields:[field("fld-study-topic","Topic / module","text")],ambition:ambition(60,10,120,25)}),
+ minute("act-spanish","Spanish","Self Development","Spanish",0.35,"Languages","Minutes Spanish",{showInOutput:true,logFields:[field("fld-spanish-focus","Focus","text")],ambition:ambition(30,7,60,15)}),
+ minute("act-reflection","Reflection / Mental Practice","Self Development","Reflection / Mental Skills",0.35,"Brain","Minutes reflection",{showInOutput:true,ambition:ambition(15,5,30,10)}),
+ minute("act-meditation","Meditation / Breathwork","Self Development","Reflection / Mental Skills",0.35,"Wind","Minutes meditation",{showInOutput:true,logFields:[field("fld-meditation-type","Practice","text")],ambition:ambition(15,5,30,12)}),
+ fixed("act-daily-review","Daily Review","Life / Systems","Planning / Reviews",5,"CalendarCheck","Daily reviews",{showInOutput:true}),
+ fixed("act-weekly-review","Weekly Review + Plan","Life / Systems","Planning / Reviews",15,"CalendarRange","Weekly reviews",{showInOutput:true}),
+ fixed("act-monthly-review","Monthly Review + Plan","Life / Systems","Planning / Reviews",25,"CalendarDays","Monthly reviews",{showInOutput:true}),
+ minute("act-admin","Admin / Organisation","Life / Systems","Organisation / Admin",0.35,"FolderCog","Minutes admin",{ambition:ambition(45,5,90,10)}),
+ minute("act-personal-project","Personal Project","Life / Systems","Personal Projects",0.35,"Wrench","Minutes personal projects",{showInOutput:true,logFields:[field("fld-project-name","Project","text")],ambition:ambition(60,8,120,18)}),
  fixed("act-make-bed","Make Your Bed","Life / Systems","Home / Maintenance",3,"BedDouble","Beds made"),
  minute("act-cleaning","Cleaning","Life / Systems","Home / Maintenance",0.35,"Sparkles","Minutes cleaning"),
  unit("act-laundry","Laundry","Life / Systems","Home / Maintenance",8,"loads","Shirt","Laundry loads"),
- unit("act-meal-prep","Meal Prep","Life / Systems","Nutrition / Prep",4,"meals","CookingPot","Meals prepped"),
+ unit("act-meal-prep","Meal Prep","Life / Systems","Nutrition / Prep",4,"meals","CookingPot","Meals prepped",{showInOutput:true}),
  fixed("act-groceries","Groceries / Food Shop","Life / Systems","Nutrition / Prep",10,"ShoppingCart","Food shops completed"),
  minute("act-life-admin","Personal Life Admin","Life / Systems","Organisation / Admin",0.35,"Files","Minutes life admin"),
- fixed("act-avoided-3d","Do Task Avoided 3+ Days","Discomfort / Exposure","Avoided Tasks",15,"Flame","Avoided tasks closed"),
- fixed("act-avoided-7d","Do Task Avoided 7+ Days","Discomfort / Exposure","Avoided Tasks",25,"FlameKindling","Avoided tasks closed"),
- fixed("act-avoided-30d","Do Task Avoided 30+ Days","Discomfort / Exposure","Avoided Tasks",40,"CircleAlert","Avoided tasks closed"),
- fixed("act-public-exposure","Deliberate Public / Social Exposure","Discomfort / Exposure","Social / Public Exposure",20,"Megaphone","Exposure reps"),
- fixed("act-hardship","Voluntary Hardship Challenge","Discomfort / Exposure","Voluntary Hardship",15,"Shield","Hardship challenges"),
- fixed("act-new-intimidating","Do Something Intimidating / New","Discomfort / Exposure","New / Intimidating",20,"Sparkles","New / intimidating reps"),
- fixed("act-frog","Complete Today’s FROG","Execution","FROG / High Impact",30,"Zap","FROGs completed"),
+ fixed("act-avoided-3d","Do Task Avoided 3+ Days","Discomfort / Exposure","Avoided Tasks",15,"Flame","Avoided tasks closed",{showInOutput:true}),
+ fixed("act-avoided-7d","Do Task Avoided 7+ Days","Discomfort / Exposure","Avoided Tasks",25,"FlameKindling","Avoided tasks closed",{showInOutput:true}),
+ fixed("act-avoided-30d","Do Task Avoided 30+ Days","Discomfort / Exposure","Avoided Tasks",40,"CircleAlert","Avoided tasks closed",{showInOutput:true}),
+ fixed("act-public-exposure","Deliberate Public / Social Exposure","Discomfort / Exposure","Social / Public Exposure",20,"Megaphone","Exposure reps",{showInOutput:true,logFields:[field("fld-exposure-what","Exposure","text")]}),
+ fixed("act-hardship","Voluntary Hardship Challenge","Discomfort / Exposure","Voluntary Hardship",15,"Shield","Hardship challenges",{showInOutput:true,logFields:[field("fld-hardship-what","Challenge","text")]}),
+ fixed("act-new-intimidating","Do Something Intimidating / New","Discomfort / Exposure","New / Intimidating",20,"Sparkles","New / intimidating reps",{showInOutput:true,logFields:[field("fld-new-what","What I did","text")]}),
+ fixed("act-frog","Complete Today’s FROG","Execution","FROG / High Impact",30,"Zap","FROGs completed",{showInOutput:true}),
  fixed("act-top-before-noon","Top Task Completed Before Noon","Execution","FROG / High Impact",15,"Sun","Top tasks before noon"),
- fixed("act-long-delayed","Close a Long-delayed Commitment","Execution","Long-delayed Tasks",25,"CheckCheck","Delayed commitments closed"),
+ fixed("act-long-delayed","Close a Long-delayed Commitment","Execution","Long-delayed Tasks",25,"CheckCheck","Delayed commitments closed",{showInOutput:true,logFields:[field("fld-delayed-what","Commitment closed","text")]}),
  fixed("act-3-priorities","Complete All 3 Daily Priorities","Execution","Commitments",20,"ListTodo","3-priority days")
 ];
 
+const backfillDefaultActionMetadata=stored=>{const defaultsById=Object.fromEntries(DEFAULT_ACTIONS.map(a=>[a.id,a])),out=(Array.isArray(stored)?stored:[]).map(a=>{const d=defaultsById[a.id];if(!d)return a;const next={...a};for(const key of ["unit","pointsPerUnit","outputMetric","showInOutput","logFields","ambition"])if(next[key]===undefined&&d[key]!==undefined)next[key]=d[key];return next});const ids=new Set(out.map(a=>a.id)),names=new Set(out.map(a=>String(a.name||"").trim().toLowerCase()));for(const d of DEFAULT_ACTIONS)if(!ids.has(d.id)&&!names.has(d.name.trim().toLowerCase()))out.push({...d,logFields:(d.logFields||[]).map(f=>({...f})),ambition:d.ambition?{...d.ambition}:d.ambition});return out};
 export function loadEntries(){try{const raw=localStorage.getItem(ENTRIES_KEY);return raw?JSON.parse(raw):[]}catch{return[]}} export function saveEntries(v){localStorage.setItem(ENTRIES_KEY,JSON.stringify(v))}
-export function loadActions(){try{const raw=localStorage.getItem(ACTIONS_KEY);if(!raw){const seeded=DEFAULT_ACTIONS.map(a=>({...a}));localStorage.setItem(ACTIONS_KEY,JSON.stringify(seeded));return seeded}const parsed=JSON.parse(raw);return Array.isArray(parsed)?parsed:DEFAULT_ACTIONS.map(a=>({...a}))}catch{return DEFAULT_ACTIONS.map(a=>({...a}))}} export function saveActions(v){localStorage.setItem(ACTIONS_KEY,JSON.stringify(v))}
+export function loadActions(){try{const raw=localStorage.getItem(ACTIONS_KEY);if(!raw){const seeded=DEFAULT_ACTIONS.map(a=>({...a,logFields:(a.logFields||[]).map(f=>({...f})),ambition:a.ambition?{...a.ambition}:a.ambition}));localStorage.setItem(ACTIONS_KEY,JSON.stringify(seeded));return seeded}const parsed=JSON.parse(raw),next=backfillDefaultActionMetadata(parsed);localStorage.setItem(ACTIONS_KEY,JSON.stringify(next));return next}catch{return DEFAULT_ACTIONS.map(a=>({...a}))}} export function saveActions(v){localStorage.setItem(ACTIONS_KEY,JSON.stringify(v))}
 export function loadSettings(){try{const raw=localStorage.getItem(SETTINGS_KEY);if(!raw)return{...DEFAULT_SETTINGS};const parsed=JSON.parse(raw),cats=Array.isArray(parsed.categories)?parsed.categories:DEFAULT_CATEGORIES;const life=cats.find(c=>c.name==="Life / Systems");if(life){const names=new Set((life.subcategories||[]).map(s=>typeof s==="string"?s:s.name));for(const name of ["Home / Maintenance","Nutrition / Prep"])if(!names.has(name))life.subcategories=[...(life.subcategories||[]),{name,active:true}]}return{...DEFAULT_SETTINGS,...parsed,categories:cats}}catch{return{...DEFAULT_SETTINGS}}} export function saveSettings(v){localStorage.setItem(SETTINGS_KEY,JSON.stringify(v))}
 export function loadNotes(){try{const r=localStorage.getItem(NOTES_KEY),p=r?JSON.parse(r):{};return{weekly:p.weekly||{},monthly:p.monthly||{}}}catch{return{weekly:{},monthly:{}}}} export function saveNotes(v){localStorage.setItem(NOTES_KEY,JSON.stringify(v))}
 export function loadDailyPlans(){try{const r=localStorage.getItem(DAILY_PLANS_KEY);return r?JSON.parse(r):{}}catch{return{}}} export function saveDailyPlans(v){localStorage.setItem(DAILY_PLANS_KEY,JSON.stringify(v))}
