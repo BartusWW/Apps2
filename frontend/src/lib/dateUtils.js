@@ -1,159 +1,29 @@
 // Date helpers — week starts Monday (ISO)
-// CRITICAL: entry dates are grouped/displayed in the USER'S LOCAL TIMEZONE.
-// Never use `Date.prototype.toISOString().slice(0,10)` for user-facing dates —
-// that returns the UTC day, which can be off by one for users east/west of UTC
-// around midnight. Use `localISO()` instead.
-export function localISO(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-export function todayISO() {
-  return localISO(new Date());
-}
-
-export function nowTimeHHMM() {
-  const d = new Date();
-  return d.toTimeString().slice(0, 5);
-}
-
-// Returns Monday 00:00 of the week containing the given date
-export function startOfWeek(date = new Date()) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay(); // 0=Sun, 1=Mon ...
-  const diff = day === 0 ? -6 : 1 - day; // shift to Monday
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-
-export function endOfWeek(date = new Date()) {
-  const s = startOfWeek(date);
-  const e = new Date(s);
-  e.setDate(e.getDate() + 7);
-  return e;
-}
-
-export function startOfLastWeek(date = new Date()) {
-  const s = startOfWeek(date);
-  s.setDate(s.getDate() - 7);
-  return s;
-}
-
-export function isSameDay(dateStr, ref = new Date()) {
-  return dateStr === localISO(ref);
-}
-
-export function entryDateTime(entry) {
-  // Combine date + time into a Date object (interpreted as LOCAL time).
-  return new Date(`${entry.date}T${entry.time || "00:00"}:00`);
-}
-
-export function isInRange(entry, start, end) {
-  const t = entryDateTime(entry).getTime();
-  return t >= start.getTime() && t < end.getTime();
-}
-
-export function formatDateShort(dateStr) {
-  const d = new Date(`${dateStr}T00:00:00`);
-  return d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
-}
-
-export function formatWeekRange(start) {
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
-  const opts = { month: "short", day: "numeric" };
-  return `${start.toLocaleDateString(undefined, opts)} – ${end.toLocaleDateString(undefined, opts)}`;
-}
-
-// Current study streak in days (consecutive days with at least one PT Study entry, ending today or yesterday)
-export function calcStudyStreak(entries) {
-  const studyDays = new Set(
-    entries
-      .filter((e) => e.category === "PT Study" && e.type === "positive")
-      .map((e) => e.date),
-  );
-  if (studyDays.size === 0) return 0;
-  let streak = 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  // Allow streak to start today OR yesterday (so if user hasn't studied today yet, streak still counts)
-  const cursor = new Date(today);
-  if (!studyDays.has(localISO(cursor))) {
-    cursor.setDate(cursor.getDate() - 1);
-    if (!studyDays.has(localISO(cursor))) return 0;
-  }
-  while (studyDays.has(localISO(cursor))) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
-}
-
-// ----- Month / Week-Key helpers -----
-
-export function startOfMonth(date = new Date()) {
-  const d = new Date(date);
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-export function endOfMonth(date = new Date()) {
-  const d = startOfMonth(date);
-  d.setMonth(d.getMonth() + 1);
-  return d;
-}
-
-export function startOfLastMonth(date = new Date()) {
-  const d = startOfMonth(date);
-  d.setMonth(d.getMonth() - 1);
-  return d;
-}
-
-export function monthKey(date = new Date()) {
-  const d = new Date(date);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
-}
-
-export function formatMonth(date = new Date()) {
-  return new Date(date).toLocaleDateString(undefined, {
-    month: "long",
-    year: "numeric",
-  });
-}
-
-// ISO week key — YYYY-Www where week starts Monday
-export function weekKey(date = new Date()) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  // ISO week calc: Thursday in current week decides the year
-  const dayNr = (d.getDay() + 6) % 7;
-  d.setDate(d.getDate() - dayNr + 3);
-  const firstThursday = new Date(d.getFullYear(), 0, 4);
-  const diff = (d - firstThursday) / 86400000;
-  const week = 1 + Math.round((diff - 3 + ((firstThursday.getDay() + 6) % 7)) / 7);
-  return `${d.getFullYear()}-W${String(week).padStart(2, "0")}`;
-}
-
-// Iterate all Monday-week starts that overlap with the given month
-export function weeksInMonth(monthAnchor = new Date()) {
-  const mStart = startOfMonth(monthAnchor);
-  const mEnd = endOfMonth(monthAnchor);
-  const result = [];
-  let cursor = startOfWeek(mStart);
-  while (cursor < mEnd) {
-    const wEnd = new Date(cursor);
-    wEnd.setDate(wEnd.getDate() + 7);
-    result.push({ start: new Date(cursor), end: wEnd });
-    cursor = wEnd;
-  }
-  return result;
-}
+// CBE Clock: debug time is persisted separately from normal app state so every
+// lifecycle system can read the same simulated "now" without mutating real time.
+const CLOCK_KEY="cbe.debug.clock.v1";
+const readClock=()=>{if(typeof window==="undefined")return null;try{const v=JSON.parse(localStorage.getItem(CLOCK_KEY)||"null");return v?.enabled&&v?.now?new Date(v.now):null}catch{return null}};
+export function cbeNow(){const d=readClock();return d&&!Number.isNaN(d.getTime())?d:new Date()}
+export function getDebugClock(){const d=readClock();return d?{enabled:true,now:d.toISOString()}: {enabled:false,now:null}}
+export function setDebugClock(date){if(typeof window==="undefined")return;const d=new Date(date);if(Number.isNaN(d.getTime()))return;localStorage.setItem(CLOCK_KEY,JSON.stringify({enabled:true,now:d.toISOString()}));window.dispatchEvent(new Event("cbe-clock-change"))}
+export function clearDebugClock(){if(typeof window==="undefined")return;localStorage.removeItem(CLOCK_KEY);window.dispatchEvent(new Event("cbe-clock-change"))}
+export function advanceDebugClock({days=0,hours=0}={}){const d=cbeNow();d.setHours(d.getHours()+hours);d.setDate(d.getDate()+days);setDebugClock(d);return d}
+export function localISO(date=cbeNow()){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,"0"),d=String(date.getDate()).padStart(2,"0");return `${y}-${m}-${d}`}
+export function todayISO(){return localISO(cbeNow())}
+export function nowTimeHHMM(){return cbeNow().toTimeString().slice(0,5)}
+export function startOfWeek(date=cbeNow()){const d=new Date(date);d.setHours(0,0,0,0);const day=d.getDay(),diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);return d}
+export function endOfWeek(date=cbeNow()){const s=startOfWeek(date),e=new Date(s);e.setDate(e.getDate()+7);return e}
+export function startOfLastWeek(date=cbeNow()){const s=startOfWeek(date);s.setDate(s.getDate()-7);return s}
+export function isSameDay(dateStr,ref=cbeNow()){return dateStr===localISO(ref)}
+export function entryDateTime(entry){return new Date(`${entry.date}T${entry.time||"00:00"}:00`)}
+export function isInRange(entry,start,end){const t=entryDateTime(entry).getTime();return t>=start.getTime()&&t<end.getTime()}
+export function formatDateShort(dateStr){return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined,{month:"short",day:"numeric"})}
+export function formatWeekRange(start){const end=new Date(start);end.setDate(end.getDate()+6);const opts={month:"short",day:"numeric"};return `${start.toLocaleDateString(undefined,opts)} – ${end.toLocaleDateString(undefined,opts)}`}
+export function calcStudyStreak(entries){const studyDays=new Set(entries.filter(e=>e.category==="PT Study"&&e.type==="positive").map(e=>e.date));if(!studyDays.size)return 0;let streak=0,today=cbeNow();today.setHours(0,0,0,0);const cursor=new Date(today);if(!studyDays.has(localISO(cursor))){cursor.setDate(cursor.getDate()-1);if(!studyDays.has(localISO(cursor)))return 0}while(studyDays.has(localISO(cursor))){streak++;cursor.setDate(cursor.getDate()-1)}return streak}
+export function startOfMonth(date=cbeNow()){const d=new Date(date);d.setDate(1);d.setHours(0,0,0,0);return d}
+export function endOfMonth(date=cbeNow()){const d=startOfMonth(date);d.setMonth(d.getMonth()+1);return d}
+export function startOfLastMonth(date=cbeNow()){const d=startOfMonth(date);d.setMonth(d.getMonth()-1);return d}
+export function monthKey(date=cbeNow()){const d=new Date(date),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0");return `${y}-${m}`}
+export function formatMonth(date=cbeNow()){return new Date(date).toLocaleDateString(undefined,{month:"long",year:"numeric"})}
+export function weekKey(date=cbeNow()){const d=new Date(date);d.setHours(0,0,0,0);const dayNr=(d.getDay()+6)%7;d.setDate(d.getDate()-dayNr+3);const firstThursday=new Date(d.getFullYear(),0,4),diff=(d-firstThursday)/86400000,week=1+Math.round((diff-3+((firstThursday.getDay()+6)%7))/7);return `${d.getFullYear()}-W${String(week).padStart(2,"0")}`}
+export function weeksInMonth(monthAnchor=cbeNow()){const mStart=startOfMonth(monthAnchor),mEnd=endOfMonth(monthAnchor),result=[];let cursor=startOfWeek(mStart);while(cursor<mEnd){const wEnd=new Date(cursor);wEnd.setDate(wEnd.getDate()+7);result.push({start:new Date(cursor),end:wEnd});cursor=wEnd}return result}
