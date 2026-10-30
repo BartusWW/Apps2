@@ -1,11 +1,214 @@
-import {useMemo,useState} from "react";import * as Icons from "lucide-react";import {BookTemplate,Check,Search,X,PackagePlus,Plus} from "lucide-react";import {toast} from "sonner";import {useApp} from "../context/AppContext";import {TEMPLATE_GROUPS,TEMPLATE_LABELS,TEMPLATE_PACKS,TEMPLATE_CATEGORIES} from "../lib/templates";import {loadMetrics,saveMetrics} from "../lib/metricStorage";import {loadMissions,saveMissions,missionId} from "../lib/missionStorage";
+import {useMemo,useState} from "react";
+import * as Icons from "lucide-react";
+import {BookTemplate,Check,Search,X,PackagePlus,Plus} from "lucide-react";
+import {toast} from "sonner";
+import {useApp} from "../context/AppContext";
+import {TEMPLATE_GROUPS,TEMPLATE_LABELS,TEMPLATE_PACKS,TEMPLATE_CATEGORIES} from "../lib/templates";
+import {loadMetrics,saveMetrics} from "../lib/metricStorage";
+import {loadMissions,saveMissions,missionId} from "../lib/missionStorage";
 import {ActionForm} from "./settings/ActionsEditor";
-const uid=()=>`${Date.now()}-${Math.random().toString(36).slice(2,7)}`,today=()=>new Date().toISOString().slice(0,10),plusDays=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
-const COMPONENT_LABELS={action:"Action",habit:"Habit",recurring:"Recurring",goal:"Goal",mission:"Mission"},norm=s=>String(s||"").trim().toLowerCase().replace(/\s+/g," ");
-export default function TemplateLibrary(){const{actions,settings,updateSettings,addGoal,addAction}=useApp(),[type,setType]=useState("packs"),[category,setCategory]=useState("All"),[query,setQuery]=useState(""),[selected,setSelected]=useState(null),[actionIds,setActionIds]=useState([]),[actionQuery,setActionQuery]=useState(""),[actionMode,setActionMode]=useState("suggested"),[creatingAction,setCreatingAction]=useState(false),[parts,setParts]=useState({}),[outputs,setOutputs]=useState({session:false,metric:false});const packs=useMemo(()=>TEMPLATE_PACKS.filter(t=>(category==="All"||t.category===category)&&(!query.trim()||`${t.name} ${t.description||""} ${t.category}`.toLowerCase().includes(query.toLowerCase()))),[category,query]),list=useMemo(()=>type==="packs"?packs:TEMPLATE_GROUPS[type].filter(t=>!query.trim()||`${t.name} ${t.description||""}`.toLowerCase().includes(query.toLowerCase())),[type,packs,query]),positive=actions.filter(a=>a.type==="positive"),needsAction=["recurring","habits","goals","missions"].includes(type);const suggestedIds=selected?.suggestedActions||selected?.actionRef?[...(selected?.suggestedActions||[]),...(selected?.actionRef?[selected.actionRef]:[])]:[],suggested=positive.filter(a=>suggestedIds.includes(a.id)),filtered=positive.filter(a=>!actionQuery.trim()||`${a.name} ${a.category} ${a.subcategory||""}`.toLowerCase().includes(actionQuery.toLowerCase()));
-const choose=t=>{setSelected({...t});const refs=[...(t.suggestedActions||[]),...(t.actionRef?[t.actionRef]:[])],available=refs.filter(id=>actions.some(a=>a.id===id));setActionIds(available);setActionQuery("");setActionMode(available.length?"suggested":"all");setCreatingAction(false);setParts(Object.fromEntries(Object.keys(t.components||{}).map(k=>[k,true])));const a=t.components?.action;setOutputs({session:!!a?.showInOutput,metric:!!a?.outputMetric})};
-const toggleAction=id=>setActionIds(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);
-const createAndSelect=p=>{const a=addAction(p);setActionIds(v=>[...new Set([...v,a.id])]);setCreatingAction(false);setActionMode("all");toast("Action created and linked")};
-const installPack=()=>{if(!selected?.components)return;const c=selected.components,chosen=k=>parts[k]&&c[k],refs=[...(selected.actionRef?[selected.actionRef]:[]),...(c.goal?.suggestedActions||[]),...(c.mission?.suggestedActions||[])];let linked=actions.filter(a=>actionIds.includes(a.id));if(!linked.length)linked=actions.filter(a=>refs.includes(a.id));let primary=linked[0]||null;if(c.action&&chosen("action")){const existing=actions.find(a=>norm(a.name)===norm(c.action.name));if(existing){primary=existing;linked=linked.length?linked:[existing]}else{const def={...c.action,showInOutput:!!outputs.session,outputMetric:outputs.metric?(c.action.outputMetric||`${c.action.name} ${c.action.unit&&c.action.unit!=="completion"?c.action.unit:"completed"}`):""};primary=addAction(def);linked=[...linked,primary]}}if((chosen("habit")||chosen("recurring"))&&!primary)return toast("Choose or create the linked Action first");let recurring=[...(settings.recurringTasks||[])];if(chosen("habit")){const h=c.habit;const a=actions.find(x=>x.id===h.actionRef)||primary;recurring.push({id:uid(),actionId:a?.id||primary.id,days:[...(h.days||[])],frequency:h.frequency||"each",frog:!!h.frog,unfinished:h.unfinished||"ask",enabled:true,habit:{...h.habitData,targetHistory:[]}})}if(chosen("recurring")){const r=c.recurring;const a=actions.find(x=>x.id===r.actionRef)||primary;recurring.push({id:uid(),actionId:a?.id||primary.id,days:[...(r.days||[])],frequency:r.frequency||"each",frog:!!r.frog,unfinished:r.unfinished||"ask",enabled:true,habit:null})}if(chosen("habit")||chosen("recurring"))updateSettings({recurringTasks:recurring});const ids=linked.map(a=>a.id);if(chosen("goal"))addGoal({...c.goal,id:undefined,linkedActivities:ids.length?ids:(primary?[primary.id]:[])});if(chosen("mission")){const all=loadMissions(),m={...c.mission,id:missionId(),status:"active",startDate:today(),endDate:c.mission.days?plusDays(c.mission.days):"",goalIds:[],trackedMetrics:[],linkedTasks:ids.map(actionId=>({actionId})),actionIds:ids,pinned:false,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};delete m.days;delete m.suggestedActions;saveMissions([...all,m])}toast(`${selected.name} system installed`);setSelected(null)};
-const useTemplate=()=>{if(!selected)return;if(type==="packs")return installPack();if((type==="recurring"||type==="habits")&&!actionIds.length)return toast("Choose or create an Action for this template");if(type==="goals"){const {suggestedActions,...g}=selected;addGoal({...g,id:undefined,linkedActivities:actionIds});toast("Goal template added with linked Actions")}else if(type==="missions"){const all=loadMissions(),{suggestedActions,...src}=selected,m={...src,id:missionId(),status:"active",startDate:today(),endDate:selected.days?plusDays(selected.days):"",goalIds:[],trackedMetrics:[],linkedTasks:actionIds.map(actionId=>({actionId})),actionIds:[...actionIds],pinned:false,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};delete m.days;saveMissions([...all,m]);toast("Mission template added with linked Actions")}else if(type==="metrics"){const all=loadMetrics(),m={...selected,id:uid(),milestones:(selected.milestones||[]).map(x=>({...x,id:uid()}))};saveMetrics([...all,m]);toast("Metric template added — open Metrics to customise it")}else{const base={id:uid(),actionId:actionIds[0],days:[...(selected.days||[])],frequency:selected.frequency||"each",frog:!!selected.frog,unfinished:selected.unfinished||"ask",enabled:true,habit:null};if(type==="habits")base.habit={...selected.habitData,targetHistory:[]};updateSettings({recurringTasks:[...(settings.recurringTasks||[]),base]});toast(type==="habits"?"Habit template added":"Recurring template added")}setSelected(null);setActionIds([]);setActionQuery("")};
-const tabs={packs:"Systems",...TEMPLATE_LABELS};const actionPicker=(needsAction||type==="packs")&&selected&&(suggested.length||positive.length);return <div className="space-y-4"><header><h2 className="font-display font-extrabold text-2xl uppercase flex items-center gap-2"><BookTemplate size={20}/>Library</h2><p className="text-[10px] uppercase text-neutral-400">Install complete systems or use individual templates</p></header><div className="flex gap-1 overflow-x-auto bg-neutral-900 border theme-tertiary-border rounded-xl p-1">{Object.keys(tabs).map(k=><button key={k} onClick={()=>{setType(k);setSelected(null);setCategory("All")}} className={`shrink-0 rounded-lg py-2 px-3 text-[8px] uppercase ${type===k?"theme-primary-bg text-white":"text-neutral-400"}`}>{tabs[k]}</button>)}</div>{type==="packs"&&<div className="flex gap-1 overflow-x-auto">{["All",...TEMPLATE_CATEGORIES].map(c=><button key={c} onClick={()=>setCategory(c)} className={`shrink-0 border rounded-lg px-3 py-1.5 text-[9px] uppercase ${category===c?"theme-primary-border theme-primary-text":"theme-tertiary-border text-neutral-500"}`}>{c}</button>)}</div>}<div className="relative"><Search size={14} className="absolute left-3 top-3 text-neutral-500"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={`Search ${tabs[type]}...`} className="w-full bg-neutral-900 border theme-tertiary-border rounded-xl pl-9 pr-3 py-2.5 text-sm"/></div><div className="grid md:grid-cols-2 gap-2">{list.map((t,i)=>{const I=Icons[t.icon]||BookTemplate;return <button key={`${type}-${t.id||i}`} onClick={()=>choose(t)} className="bg-neutral-900 border theme-tertiary-border rounded-xl p-3 text-left hover:border-white/25"><div className="flex gap-2"><I size={17} className="theme-primary-text mt-0.5"/><div className="min-w-0"><div className="flex items-center gap-2"><b className="text-sm">{t.name}</b>{type==="packs"&&<span className="text-[8px] uppercase border theme-tertiary-border rounded px-1.5 py-0.5 text-neutral-500">{t.category}</span>}</div>{t.description&&<p className="text-[11px] text-neutral-300 mt-1">{t.description}</p>}{type==="packs"&&<p className="text-[9px] uppercase text-neutral-500 mt-2">{Object.keys(t.components).map(k=>COMPONENT_LABELS[k]).join(" · ")}</p>}</div></div></button>})}</div>{selected&&<div className="fixed inset-0 z-50 bg-black/80 flex items-end md:items-center justify-center p-3" onClick={()=>setSelected(null)}><div onClick={e=>e.stopPropagation()} className="w-full max-w-lg bg-neutral-900 border theme-primary-border rounded-2xl p-4 space-y-4 max-h-[90vh] overflow-y-auto"><div className="flex"><div className="flex-1"><p className="text-[10px] uppercase theme-primary-text font-bold">{type==="packs"?"Install system":"Use template"}</p><h3 className="font-display font-extrabold text-xl uppercase">{selected.name}</h3>{selected.category&&<p className="text-[9px] uppercase text-neutral-500">{selected.category}</p>}</div><button onClick={()=>setSelected(null)}><X size={16}/></button></div>{selected.description&&<p className="text-sm text-neutral-300">{selected.description}</p>}{type==="packs"&&<div className="space-y-2"><p className="text-[9px] uppercase text-neutral-500">Install components</p>{Object.entries(selected.components||{}).map(([k,v])=><label key={k} className="flex items-center gap-3 bg-neutral-950 border theme-tertiary-border rounded-lg p-3"><input type="checkbox" checked={!!parts[k]} onChange={e=>setParts(p=>({...p,[k]:e.target.checked}))}/><span className="flex-1"><b className="text-xs uppercase">{COMPONENT_LABELS[k]}</b><small className="block text-neutral-500 mt-0.5">{v.name}</small></span></label>)}</div>}{actionPicker&&<section className="space-y-2 border theme-tertiary-border rounded-xl p-3"><div className="flex items-center justify-between"><div><p className="text-[10px] uppercase font-bold theme-primary-text">Linked Actions</p><p className="text-[9px] text-neutral-500">Templates suggest Actions, but you stay in control.</p></div><button onClick={()=>setCreatingAction(v=>!v)} className="border theme-tertiary-border rounded-lg px-2 py-1 text-[9px] uppercase"><Plus size={10} className="inline"/> New</button></div>{creatingAction?<ActionForm categories={settings.categories||[]} submitLabel="Create & link" onCancel={()=>setCreatingAction(false)} onSave={createAndSelect}/>:<><div className="flex gap-1"><button onClick={()=>setActionMode("suggested")} disabled={!suggested.length} className={`border rounded-lg px-3 py-1.5 text-[9px] uppercase ${actionMode==="suggested"?"theme-primary-border theme-primary-text":"theme-tertiary-border text-neutral-500"} disabled:opacity-30`}>Suggested {suggested.length?`(${suggested.length})`:""}</button><button onClick={()=>setActionMode("all")} className={`border rounded-lg px-3 py-1.5 text-[9px] uppercase ${actionMode==="all"?"theme-primary-border theme-primary-text":"theme-tertiary-border text-neutral-500"}`}>All Actions</button></div>{actionMode==="all"&&<div className="relative"><Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"/><input value={actionQuery} onChange={e=>setActionQuery(e.target.value)} placeholder="Search name, category, subcategory…" className="w-full bg-neutral-950 border theme-tertiary-border rounded-lg pl-8 pr-3 py-2 text-xs"/></div>}<div className="space-y-1 max-h-48 overflow-y-auto">{(actionMode==="suggested"?suggested:filtered).map(a=><label key={a.id} className="flex gap-2 items-center bg-neutral-950 border theme-tertiary-border rounded-lg p-2"><input type={type==="recurring"||type==="habits"?"radio":"checkbox"} name="template-action" checked={actionIds.includes(a.id)} onChange={()=>type==="recurring"||type==="habits"?setActionIds([a.id]):toggleAction(a.id)}/><span className="min-w-0"><b className="block text-xs">{a.name}</b><small className="block text-[9px] text-neutral-500 uppercase truncate">{a.category} · {a.subcategory||"—"} · {a.scoringType==="per-unit"?`${a.pointsPerUnit} CBE/${a.unit}`:`${a.points} CBE`}</small></span></label>)}</div></>}</section>}{type==="packs"&&selected.components?.action&&parts.action&&<div className="space-y-2"><p className="text-[9px] uppercase text-neutral-500">Output tracking for newly created Action</p><label className="flex items-center gap-3 bg-neutral-950 border theme-tertiary-border rounded-lg p-3"><input type="checkbox" checked={outputs.session} onChange={e=>setOutputs(o=>({...o,session:e.target.checked}))}/><span><b className="text-xs">Action Output</b></span></label><label className="flex items-center gap-3 bg-neutral-950 border theme-tertiary-border rounded-lg p-3"><input type="checkbox" checked={outputs.metric} onChange={e=>setOutputs(o=>({...o,metric:e.target.checked}))}/><span><b className="text-xs">Output Metric</b></span></label></div>}<p className="text-[11px] text-neutral-400">Everything installed is a normal editable CBE item. Suggested Actions come from the existing catalog; you can replace them or create your own.</p><button onClick={useTemplate} className="w-full theme-primary-bg rounded-lg py-3 text-xs font-bold uppercase">{type==="packs"?<PackagePlus size={13} className="inline mr-1"/>:<Check size={13} className="inline mr-1"/>}{type==="packs"?"Install system":"Add from template"}</button></div></div>}</div>
+
+const uid=()=>`${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+const today=()=>new Date().toISOString().slice(0,10);
+const plusDays=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+const COMPONENT_LABELS={action:"Action",habit:"Habit",recurring:"Recurring",goal:"Goal",mission:"Mission"};
+const norm=s=>String(s||"").trim().toLowerCase().replace(/\s+/g," ");
+
+export default function TemplateLibrary(){
+  const {actions,settings,updateSettings,addGoal,addAction}=useApp();
+  const [type,setType]=useState("packs");
+  const [category,setCategory]=useState("All");
+  const [query,setQuery]=useState("");
+  const [selected,setSelected]=useState(null);
+  const [actionIds,setActionIds]=useState([]);
+  const [actionQuery,setActionQuery]=useState("");
+  const [actionMode,setActionMode]=useState("suggested");
+  const [creatingAction,setCreatingAction]=useState(false);
+  const [parts,setParts]=useState({});
+  const [outputs,setOutputs]=useState({session:false,metric:false});
+
+  const packs=useMemo(()=>TEMPLATE_PACKS.filter(t=>(category==="All"||t.category===category)&&(!query.trim()||`${t.name} ${t.description||""} ${t.category}`.toLowerCase().includes(query.toLowerCase()))),[category,query]);
+  const list=useMemo(()=>type==="packs"?packs:TEMPLATE_GROUPS[type].filter(t=>!query.trim()||`${t.name} ${t.description||""}`.toLowerCase().includes(query.toLowerCase())),[type,packs,query]);
+  const positive=actions.filter(a=>a.type==="positive");
+  const needsAction=["recurring","habits","goals","missions"].includes(type);
+  const suggestedIds=[...(selected?.suggestedActions||[]),...(selected?.actionRef?[selected.actionRef]:[])];
+  const suggested=positive.filter(a=>suggestedIds.includes(a.id));
+  const filtered=positive.filter(a=>!actionQuery.trim()||`${a.name} ${a.category} ${a.subcategory||""}`.toLowerCase().includes(actionQuery.toLowerCase()));
+
+  const choose=t=>{
+    setSelected({...t});
+    const refs=[...(t.suggestedActions||[]),...(t.actionRef?[t.actionRef]:[])];
+    const available=refs.filter(id=>actions.some(a=>a.id===id));
+    setActionIds(available);
+    setActionQuery("");
+    setActionMode(available.length?"suggested":"all");
+    setCreatingAction(false);
+    setParts(Object.fromEntries(Object.keys(t.components||{}).map(k=>[k,true])));
+    const a=t.components?.action;
+    setOutputs({session:!!a?.showInOutput,metric:!!a?.outputMetric});
+  };
+
+  const toggleAction=id=>setActionIds(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);
+  const createAndSelect=p=>{
+    const a=addAction(p);
+    setActionIds(v=>[...new Set([...v,a.id])]);
+    setCreatingAction(false);
+    setActionMode("all");
+    toast("Action created and linked");
+  };
+
+  const installPack=()=>{
+    if(!selected?.components)return;
+    const c=selected.components;
+    const chosen=k=>parts[k]&&c[k];
+    const refs=[...(selected.actionRef?[selected.actionRef]:[]),...(c.goal?.suggestedActions||[]),...(c.mission?.suggestedActions||[])];
+    let linked=actions.filter(a=>actionIds.includes(a.id));
+    if(!linked.length)linked=actions.filter(a=>refs.includes(a.id));
+    let primary=linked[0]||null;
+
+    if(c.action&&chosen("action")){
+      const existing=actions.find(a=>norm(a.name)===norm(c.action.name));
+      if(existing){
+        primary=existing;
+        linked=linked.length?linked:[existing];
+      }else{
+        const def={...c.action,showInOutput:!!outputs.session,outputMetric:outputs.metric?(c.action.outputMetric||`${c.action.name} ${c.action.unit&&c.action.unit!=="completion"?c.action.unit:"completed"}`):""};
+        primary=addAction(def);
+        linked=[...linked,primary];
+      }
+    }
+
+    if((chosen("habit")||chosen("recurring"))&&!primary)return toast("Choose or create the linked Action first");
+    let recurring=[...(settings.recurringTasks||[])];
+
+    if(chosen("habit")){
+      const h=c.habit;
+      const a=actions.find(x=>x.id===h.actionRef)||primary;
+      recurring.push({id:uid(),actionId:a?.id||primary.id,days:[...(h.days||[])],frequency:h.frequency||"each",frog:!!h.frog,unfinished:h.unfinished||"ask",enabled:true,habit:{...h.habitData,targetHistory:[]}});
+    }
+    if(chosen("recurring")){
+      const r=c.recurring;
+      const a=actions.find(x=>x.id===r.actionRef)||primary;
+      recurring.push({id:uid(),actionId:a?.id||primary.id,days:[...(r.days||[])],frequency:r.frequency||"each",frog:!!r.frog,unfinished:r.unfinished||"ask",enabled:true,habit:null});
+    }
+    if(chosen("habit")||chosen("recurring"))updateSettings({recurringTasks:recurring});
+
+    const ids=linked.map(a=>a.id);
+    if(chosen("goal"))addGoal({...c.goal,id:undefined,linkedActivities:ids.length?ids:(primary?[primary.id]:[])});
+    if(chosen("mission")){
+      const all=loadMissions();
+      const m={...c.mission,id:missionId(),status:"active",startDate:today(),endDate:c.mission.days?plusDays(c.mission.days):"",goalIds:[],trackedMetrics:[],linkedTasks:ids.map(actionId=>({actionId})),actionIds:ids,pinned:false,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+      delete m.days;
+      delete m.suggestedActions;
+      saveMissions([...all,m]);
+    }
+    toast(`${selected.name} system installed`);
+    setSelected(null);
+  };
+
+  const useTemplate=()=>{
+    if(!selected)return;
+    if(type==="packs")return installPack();
+    if((type==="recurring"||type==="habits")&&!actionIds.length)return toast("Choose or create an Action for this template");
+
+    if(type==="goals"){
+      const {suggestedActions,...g}=selected;
+      addGoal({...g,id:undefined,linkedActivities:actionIds});
+      toast("Goal template added with linked Actions");
+    }else if(type==="missions"){
+      const all=loadMissions();
+      const {suggestedActions,...src}=selected;
+      const m={...src,id:missionId(),status:"active",startDate:today(),endDate:selected.days?plusDays(selected.days):"",goalIds:[],trackedMetrics:[],linkedTasks:actionIds.map(actionId=>({actionId})),actionIds:[...actionIds],pinned:false,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+      delete m.days;
+      saveMissions([...all,m]);
+      toast("Mission template added with linked Actions");
+    }else if(type==="metrics"){
+      const all=loadMetrics();
+      const m={...selected,id:uid(),milestones:(selected.milestones||[]).map(x=>({...x,id:uid()}))};
+      saveMetrics([...all,m]);
+      toast("Metric template added — open Metrics to customise it");
+    }else{
+      const base={id:uid(),actionId:actionIds[0],days:[...(selected.days||[])],frequency:selected.frequency||"each",frog:!!selected.frog,unfinished:selected.unfinished||"ask",enabled:true,habit:null};
+      if(type==="habits")base.habit={...selected.habitData,targetHistory:[]};
+      updateSettings({recurringTasks:[...(settings.recurringTasks||[]),base]});
+      toast(type==="habits"?"Habit template added":"Recurring template added");
+    }
+    setSelected(null);
+    setActionIds([]);
+    setActionQuery("");
+  };
+
+  const tabs={packs:"Systems",...TEMPLATE_LABELS};
+  const actionPicker=(needsAction||type==="packs")&&selected&&(suggested.length||positive.length);
+  const pickerActions=actionMode==="suggested"?suggested:filtered;
+  const singleAction=type==="recurring"||type==="habits";
+
+  return <div className="space-y-4">
+    <header>
+      <h2 className="font-display font-extrabold text-2xl uppercase flex items-center gap-2"><BookTemplate size={20}/>Library</h2>
+      <p className="text-[10px] uppercase text-neutral-400">Install complete systems or use individual templates</p>
+    </header>
+
+    <div className="flex gap-1 overflow-x-auto bg-neutral-900 border theme-tertiary-border rounded-xl p-1">
+      {Object.keys(tabs).map(k=><button key={k} onClick={()=>{setType(k);setSelected(null);setCategory("All")}} className={`shrink-0 rounded-lg py-2 px-3 text-[8px] uppercase ${type===k?"theme-primary-bg text-white":"text-neutral-400"}`}>{tabs[k]}</button>)}
+    </div>
+
+    {type==="packs"&&<div className="flex gap-1 overflow-x-auto">
+      {["All",...TEMPLATE_CATEGORIES].map(c=><button key={c} onClick={()=>setCategory(c)} className={`shrink-0 border rounded-lg px-3 py-1.5 text-[9px] uppercase ${category===c?"theme-primary-border theme-primary-text":"theme-tertiary-border text-neutral-500"}`}>{c}</button>)}
+    </div>}
+
+    <div className="relative">
+      <Search size={14} className="absolute left-3 top-3 text-neutral-500"/>
+      <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={`Search ${tabs[type]}...`} className="w-full bg-neutral-900 border theme-tertiary-border rounded-xl pl-9 pr-3 py-2.5 text-sm"/>
+    </div>
+
+    <div className="grid md:grid-cols-2 gap-2">
+      {list.map((t,i)=>{const I=Icons[t.icon]||BookTemplate;return <button key={`${type}-${t.id||i}`} onClick={()=>choose(t)} className="bg-neutral-900 border theme-tertiary-border rounded-xl p-3 text-left hover:border-white/25"><div className="flex gap-2"><I size={17} className="theme-primary-text mt-0.5"/><div className="min-w-0"><div className="flex items-center gap-2"><b className="text-sm">{t.name}</b>{type==="packs"&&<span className="text-[8px] uppercase border theme-tertiary-border rounded px-1.5 py-0.5 text-neutral-500">{t.category}</span>}</div>{t.description&&<p className="text-[11px] text-neutral-300 mt-1">{t.description}</p>}{type==="packs"&&<p className="text-[9px] uppercase text-neutral-500 mt-2">{Object.keys(t.components).map(k=>COMPONENT_LABELS[k]).join(" · ")}</p>}</div></div></button>})}
+    </div>
+
+    {selected&&<div className="fixed inset-0 z-50 bg-black/80 flex items-end md:items-center justify-center p-3" onClick={()=>setSelected(null)}>
+      <div onClick={e=>e.stopPropagation()} className="w-full max-w-lg bg-neutral-900 border theme-primary-border rounded-2xl p-4 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex">
+          <div className="flex-1"><p className="text-[10px] uppercase theme-primary-text font-bold">{type==="packs"?"Install system":"Use template"}</p><h3 className="font-display font-extrabold text-xl uppercase">{selected.name}</h3>{selected.category&&<p className="text-[9px] uppercase text-neutral-500">{selected.category}</p>}</div>
+          <button onClick={()=>setSelected(null)}><X size={16}/></button>
+        </div>
+
+        {selected.description&&<p className="text-sm text-neutral-300">{selected.description}</p>}
+
+        {type==="packs"&&<div className="space-y-2">
+          <p className="text-[9px] uppercase text-neutral-500">Install components</p>
+          {Object.entries(selected.components||{}).map(([k,v])=><label key={k} className="flex items-center gap-3 bg-neutral-950 border theme-tertiary-border rounded-lg p-3"><input type="checkbox" checked={!!parts[k]} onChange={e=>setParts(p=>({...p,[k]:e.target.checked}))}/><span className="flex-1"><b className="text-xs uppercase">{COMPONENT_LABELS[k]}</b><small className="block text-neutral-500 mt-0.5">{v.name}</small></span></label>)}
+        </div>}
+
+        {actionPicker&&<section className="space-y-2 border theme-tertiary-border rounded-xl p-3">
+          <div className="flex items-center justify-between">
+            <div><p className="text-[10px] uppercase font-bold theme-primary-text">Linked Actions</p><p className="text-[9px] text-neutral-500">Templates suggest Actions, but you stay in control.</p></div>
+            <button onClick={()=>setCreatingAction(v=>!v)} className="border theme-tertiary-border rounded-lg px-2 py-1 text-[9px] uppercase"><Plus size={10} className="inline"/> New</button>
+          </div>
+
+          {creatingAction
+            ? <ActionForm categories={settings.categories||[]} submitLabel="Create & link" onCancel={()=>setCreatingAction(false)} onSave={createAndSelect}/>
+            : <div className="space-y-2">
+                <div className="flex gap-1">
+                  <button onClick={()=>setActionMode("suggested")} disabled={!suggested.length} className={`border rounded-lg px-3 py-1.5 text-[9px] uppercase ${actionMode==="suggested"?"theme-primary-border theme-primary-text":"theme-tertiary-border text-neutral-500"} disabled:opacity-30`}>Suggested {suggested.length?`(${suggested.length})`:""}</button>
+                  <button onClick={()=>setActionMode("all")} className={`border rounded-lg px-3 py-1.5 text-[9px] uppercase ${actionMode==="all"?"theme-primary-border theme-primary-text":"theme-tertiary-border text-neutral-500"}`}>All Actions</button>
+                </div>
+                {actionMode==="all"&&<div className="relative"><Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"/><input value={actionQuery} onChange={e=>setActionQuery(e.target.value)} placeholder="Search name, category, subcategory…" className="w-full bg-neutral-950 border theme-tertiary-border rounded-lg pl-8 pr-3 py-2 text-xs"/></div>}
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {pickerActions.map(a=><label key={a.id} className="flex gap-2 items-center bg-neutral-950 border theme-tertiary-border rounded-lg p-2"><input type={singleAction?"radio":"checkbox"} name="template-action" checked={actionIds.includes(a.id)} onChange={()=>singleAction?setActionIds([a.id]):toggleAction(a.id)}/><span className="min-w-0"><b className="block text-xs">{a.name}</b><small className="block text-[9px] text-neutral-500 uppercase truncate">{a.category} · {a.subcategory||"—"} · {a.scoringType==="per-unit"?`${a.pointsPerUnit} CBE/${a.unit}`:`${a.points} CBE`}</small></span></label>)}
+                </div>
+              </div>}
+        </section>}
+
+        {type==="packs"&&selected.components?.action&&parts.action&&<div className="space-y-2">
+          <p className="text-[9px] uppercase text-neutral-500">Output tracking for newly created Action</p>
+          <label className="flex items-center gap-3 bg-neutral-950 border theme-tertiary-border rounded-lg p-3"><input type="checkbox" checked={outputs.session} onChange={e=>setOutputs(o=>({...o,session:e.target.checked}))}/><span><b className="text-xs">Action Output</b></span></label>
+          <label className="flex items-center gap-3 bg-neutral-950 border theme-tertiary-border rounded-lg p-3"><input type="checkbox" checked={outputs.metric} onChange={e=>setOutputs(o=>({...o,metric:e.target.checked}))}/><span><b className="text-xs">Output Metric</b></span></label>
+        </div>}
+
+        <p className="text-[11px] text-neutral-400">Everything installed is a normal editable CBE item. Suggested Actions come from the existing catalog; you can replace them or create your own.</p>
+        <button onClick={useTemplate} className="w-full theme-primary-bg rounded-lg py-3 text-xs font-bold uppercase">{type==="packs"?<PackagePlus size={13} className="inline mr-1"/>:<Check size={13} className="inline mr-1"/>}{type==="packs"?"Install system":"Add from template"}</button>
+      </div>
+    </div>}
+  </div>;
+}
