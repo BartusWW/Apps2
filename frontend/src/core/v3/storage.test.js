@@ -1,4 +1,5 @@
 import { applyExecution, createInstance, dismissInstance } from "./engine";
+import { closeExecutionDay } from "./dayClose";
 import { bootstrapV3State, loadV3State, saveV3State, V3_STATE_KEY } from "./storage";
 import { scheduleRecurringForDate } from "./scheduler";
 
@@ -47,5 +48,16 @@ describe("CBE v3 persistence", () => {
     const second = bootstrapV3State({ dailyPlans:changedLegacy, actions:[...actions,{id:"y",scoringType:"fixed"}], storage, at:"second" });
     expect(second.instances).toHaveLength(1);
     expect(JSON.parse(storage.getItem(V3_STATE_KEY)).migratedAt).toBe("first");
+  });
+
+  test("closed day ledger survives reload and prevents a second recovery", () => {
+    const storage = memoryStorage();
+    const habit = createInstance({ date:"2026-10-31", actionId:"read", name:"Read", kind:"habit", target:1 });
+    const closed = closeExecutionDay({ instances:[habit], closedDays:{} }, { date:"2026-10-31", at:"close-1" });
+    saveV3State(closed, storage, "save-1");
+    const loaded = loadV3State(storage);
+    expect(loaded.closedDays["2026-10-31"]).toBeTruthy();
+    const closedAgain = closeExecutionDay(loaded, { date:"2026-10-31", at:"close-2" });
+    expect(closedAgain.instances.filter(x => x.source === "second-chance")).toHaveLength(1);
   });
 });
