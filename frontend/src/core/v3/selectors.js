@@ -36,6 +36,7 @@ export function selectExecutionItem(state, instanceId) {
   return {
     id: instance.id,
     actionId: instance.actionId,
+    legacyItemId: instance.metadata?.legacyItemId || null,
     name: instance.name,
     date: instance.date,
     kind: instance.kind,
