@@ -58,4 +58,23 @@ describe("CBE Core v3 lifecycle invariants", () => {
     const state = closeDay([habit], "2026-10-31", "2026-11-01", "close");
     expect(selectDay(state, "2026-11-01")).toHaveLength(0);
   });
+
+  test("completed Second Chance is terminal and cannot be logged twice", () => {
+    const habit = createInstance({ date: "2026-10-31", actionId: "read", kind: "habit" });
+    const closed = closeDay([habit], "2026-10-31", "2026-11-01", "close");
+    let recovery = selectDay(closed, "2026-11-01")[0];
+    recovery = applyExecution(recovery, 1, "recovered");
+    expect(recovery.status).toBe(INSTANCE_STATUS.COMPLETED);
+    expect(recovery.progress).toBe(1);
+    expect(applyExecution(recovery, 1, "again")).toEqual(recovery);
+  });
+
+  test("dismissed Second Chance is terminal", () => {
+    const habit = createInstance({ date: "2026-10-31", actionId: "read", kind: "habit" });
+    const closed = closeDay([habit], "2026-10-31", "2026-11-01", "close");
+    const recovery = selectDay(closed, "2026-11-01")[0];
+    const dismissed = dismissInstance(recovery, "dismissed", "second-chance-rejected");
+    expect(dismissed.status).toBe(INSTANCE_STATUS.DISMISSED);
+    expect(applyExecution(dismissed, 1, "late-log")).toEqual(dismissed);
+  });
 });
