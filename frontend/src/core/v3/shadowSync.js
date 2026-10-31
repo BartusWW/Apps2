@@ -16,13 +16,8 @@ const occurrenceKey = x => [
   x.metadata?.legacyItemId || "",
 ].join("::");
 
-// During rollout legacy planning UI may still create plan items. This ingestion
-// path is intentionally one-way and add-only: it can introduce a newly planned
-// occurrence to Core, but it can never change progress/status of an occurrence
-// already owned by v3. That keeps planning compatible without restoring dual
-// execution ownership.
-export function ingestLegacyOccurrences(state, { dailyPlans = {}, actions = [] } = {}) {
-  const incoming = legacyPlanToInstances(dailyPlans, actions);
+export function ingestLegacyOccurrences(state, { dailyPlans = {}, actions = [], entries = [] } = {}) {
+  const incoming = legacyPlanToInstances(dailyPlans, actions, entries);
   const current = [...(Array.isArray(state?.instances) ? state.instances : [])];
   const keys = new Set(current.map(occurrenceKey));
   let changed = false;
@@ -38,11 +33,11 @@ export function ingestLegacyOccurrences(state, { dailyPlans = {}, actions = [] }
   return changed ? { ...state, instances: current } : state;
 }
 
-// Full shadow sync is only for the period where v2 owns execution. It may add
-// newly observed occurrences and advance ACTIVE v3 progress, but never reopen a
-// terminal v3 decision.
-export function syncLegacyShadow(state, { dailyPlans = {}, actions = [] } = {}) {
-  const incoming = legacyPlanToInstances(dailyPlans, actions);
+// Migration shadow: legacy Entries are still a real execution source until the
+// last legacy logging surface is routed through Core. Sync may only advance an
+// ACTIVE instance; terminal v3 decisions are never reopened.
+export function syncLegacyShadow(state, { dailyPlans = {}, actions = [], entries = [] } = {}) {
+  const incoming = legacyPlanToInstances(dailyPlans, actions, entries);
   const current = [...(Array.isArray(state?.instances) ? state.instances : [])];
   const byKey = new Map(current.map((x, index) => [occurrenceKey(x), { instance: x, index }]));
   let changed = false;
