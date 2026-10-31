@@ -3,15 +3,20 @@ import { selectInstance } from "./selectors";
 import { buildExecutionEntry, hasExecutionEffect, executionEffectId } from "./scoringBridge";
 
 const n = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+const round = value => Math.round(n(value) * 10) / 10;
 
 export function executionDelta(before, after) {
   if (!before || !after || before.id !== after.id) return 0;
   return Math.max(0, n(after.progress) - n(before.progress));
 }
 
-// Produces the scoring side effect from the actual Core transition, not from
-// the requested amount. This is what enforces quantity ceilings and prevents
-// CBE being awarded for work Core rejected as duplicate/terminal.
+function crossedBonuses(command, beforeProgress, afterProgress) {
+  const tiers = Array.isArray(command?.ambitionTiers) ? command.ambitionTiers : [];
+  return tiers.filter(t => n(t?.target) > beforeProgress && n(t?.target) <= afterProgress);
+}
+
+// CBE 3.1: Entries are produced only from a transition Core actually accepted.
+// UI may provide scoring parameters, but it cannot award work rejected by Core.
 export function planExecutionEffect({ beforeState, afterState, command, actions = [], entries = [] }) {
   if (![COMMAND.LOG, COMMAND.COMPLETE].includes(command?.type)) return null;
   const before = selectInstance(beforeState, command.instanceId);
@@ -26,16 +31,27 @@ export function planExecutionEffect({ beforeState, afterState, command, actions 
   const effectId = executionEffectId({ instanceId: after.id, commandId });
   if (hasExecutionEffect(entries, effectId)) return null;
 
+  const bonuses = crossedBonuses(command, n(before.progress), n(after.progress));
+  const ambitionBonus = round(bonuses.reduce((sum, tier) => sum + n(tier?.bonus), 0));
+  const points = command.pointsPerAmount != null
+    ? round(amount * n(command.pointsPerAmount) + ambitionBonus)
+    : command.points != null
+      ? round(n(command.points) + ambitionBonus)
+      : null;
+
   return buildExecutionEntry({
     instance: after,
     action,
     amount,
     commandId,
     at: command.at,
+    points,
     metadata: {
+      ...(command.metadata || {}),
       v3CommandType: command.type,
       v3ProgressBefore: n(before.progress),
       v3ProgressAfter: n(after.progress),
+      ...(ambitionBonus > 0 ? { ambitionBonus, ambitionTiers: bonuses.map(x => x.id) } : {}),
     },
   });
 }
