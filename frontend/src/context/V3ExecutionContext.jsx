@@ -7,11 +7,11 @@ import { useApp } from "./AppContext";
 const V3ExecutionContext = createContext(null);
 
 // CBE 3.1 ownership rule:
-// - dailyPlans may introduce/schedule occurrences only.
+// - dailyPlans and recurring rules may introduce/schedule occurrences only.
 // - Core is the only owner of execution progress/status/lifecycle.
 // - Entries are an append-only scoring/history projection of accepted Core commands.
 // There is deliberately no Entries -> Core or legacy execution -> Core reconciliation here.
-export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], storage = globalThis?.localStorage }) {
+export function V3ExecutionProvider({ children, dailyPlans = {}, recurringTasks = [], actions = [], storage = globalThis?.localStorage }) {
   const { entries, addEntryAt } = useApp();
   const bridgeRef = useRef(null);
   if (!bridgeRef.current) bridgeRef.current = createV3Bridge({ storage, dailyPlans, actions });
@@ -31,6 +31,14 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], s
     bridge.ingestLegacy({ dailyPlans, actions });
     refresh();
   }, [bridge, dailyPlans, actions, refresh]);
+
+  // Recurring & Habits is a scheduling source, not an execution owner. Every
+  // enabled rule due today is materialized as one dated Core occurrence. The
+  // scheduler is idempotent, so settings edits/re-renders cannot duplicate it.
+  useEffect(() => {
+    bridge.schedule({ date: todayISO(), rules: recurringTasks, actions });
+    refresh();
+  }, [bridge, recurringTasks, actions, refresh]);
 
   const execute = useCallback(command => {
     const result = bridge.dispatchWithEffect({ command, actions, entries });
