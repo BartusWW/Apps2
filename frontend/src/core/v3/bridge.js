@@ -26,6 +26,7 @@ export function createV3Bridge({
     isEnabled: feature => isV3FeatureEnabled(flags(), feature),
     day: date => adapter.day(date),
     summary: date => adapter.summary(date),
+    shadowSync: runtime.shadowSync,
     log: (...args) => {
       if (!isV3FeatureEnabled(flags(), "executionWrite")) return null;
       return adapter.log(...args);
