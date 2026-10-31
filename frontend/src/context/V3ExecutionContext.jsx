@@ -20,11 +20,13 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], s
     return result;
   }, [refresh]);
 
+  // Until every execution surface writes through Core, Entries remain part of
+  // the migration projection. Shadow sync is monotonic and cannot reopen a
+  // terminal v3 instance, so it is safe even while executionWrite is enabled.
   useEffect(() => {
-    if (bridge.isEnabled("executionWrite")) bridge.ingestLegacy({ dailyPlans, actions });
-    else bridge.shadowSync({ dailyPlans, actions });
+    bridge.shadowSync({ dailyPlans, actions, entries });
     refresh();
-  }, [bridge, dailyPlans, actions, refresh]);
+  }, [bridge, dailyPlans, actions, entries, refresh]);
 
   const execute = useCallback(command => {
     const result = bridge.dispatchWithEffect({ command, actions, entries });
