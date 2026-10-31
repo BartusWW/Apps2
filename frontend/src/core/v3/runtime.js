@@ -35,8 +35,13 @@ export function createV3Runtime({ storage = globalThis?.localStorage, now = () =
     return { state: afterState, effect, command: normalizedCommand };
   };
 
+  // Recurring rules create dated Core occurrences directly. A frozen day is
+  // immutable, so changing recurring settings later can never resurrect work
+  // inside an already closed date.
   const schedule = ({ date, rules = [], actions = [] } = {}) => transactV3State(
-    state => ({ ...state, instances: scheduleRecurringForDate(state.instances, rules, actions, date) }),
+    state => state.closedDays?.[date]
+      ? state
+      : ({ ...state, instances: scheduleRecurringForDate(state.instances, rules, actions, date) }),
     storage,
     now()
   );
