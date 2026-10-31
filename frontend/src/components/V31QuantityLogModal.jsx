@@ -16,10 +16,22 @@ export default function V31QuantityLogModal({instance,action,onClose,habitBonus=
   const [mode,setMode]=useState("add");
   const [value,setValue]=useState("");
   const [details,setDetails]=useState({});
+
+  const d=instance?.date||"";
+  const actionId=action?.id||"";
+  const isPerUnit=action?.scoringType==="per-unit";
+  const history=useMemo(()=>{
+    if(!actionId||!d)return {week:0,month:0};
+    const own=(entries||[]).filter(e=>e.actionId===actionId&&!e.ambitionBonus);
+    const amount=list=>r(list.reduce((s,e)=>s+(isPerUnit?Number(e.quantity)||0:Number(e.minutes)||0),0));
+    const x=new Date(`${d}T12:00:00`),day=x.getDay(),monday=new Date(x);monday.setDate(x.getDate()+(day===0?-6:1-day));
+    const week=`${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,"0")}-${String(monday.getDate()).padStart(2,"0")}`;
+    const month=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-01`;
+    return {week:amount(own.filter(e=>e.date>=week&&e.date<=d)),month:amount(own.filter(e=>e.date>=month&&e.date<=d))};
+  },[entries,actionId,isPerUnit,d]);
+
   if(!instance||!action)return null;
 
-  const d=instance.date;
-  const isPerUnit=action.scoringType==="per-unit";
   const unit=action.unit||instance.unit||"unit";
   const labelUnit=isPerUnit?unit:"min";
   const today=Number(instance.progress)||0;
@@ -34,15 +46,6 @@ export default function V31QuantityLogModal({instance,action,onClose,habitBonus=
   const crossed=tiers.filter(t=>Number(t.target)>today&&Number(t.target)<=projected);
   const ambitionBonus=r(crossed.reduce((s,t)=>s+Number(t.bonus||0),0));
   const pts=r(qty*pointsPerAmount+ambitionBonus);
-
-  const history=useMemo(()=>{
-    const own=(entries||[]).filter(e=>e.actionId===action.id&&!e.ambitionBonus);
-    const amount=list=>r(list.reduce((s,e)=>s+(isPerUnit?Number(e.quantity)||0:Number(e.minutes)||0),0));
-    const x=new Date(`${d}T12:00:00`),day=x.getDay(),monday=new Date(x);monday.setDate(x.getDate()+(day===0?-6:1-day));
-    const week=`${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,"0")}-${String(monday.getDate()).padStart(2,"0")}`;
-    const month=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-01`;
-    return {week:amount(own.filter(e=>e.date>=week&&e.date<=d)),month:amount(own.filter(e=>e.date>=month&&e.date<=d))};
-  },[entries,action.id,isPerUnit,d]);
 
   const submit=(input=value)=>{
     const entered=Math.max(0,Number(input)||0);
