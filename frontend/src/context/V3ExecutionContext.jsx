@@ -20,9 +20,10 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], s
     return result;
   }, [refresh]);
 
-  // While v2 owns production execution, mirror newly observed legacy changes
-  // into v3 without allowing legacy state to reopen terminal v3 occurrences.
+  // Shadow sync is strictly a migration mechanism. The moment v3 owns writes,
+  // legacy state must no longer be allowed to feed execution state back into Core.
   useEffect(() => {
+    if (bridge.isEnabled("executionWrite")) return;
     bridge.shadowSync({ dailyPlans, actions });
     refresh();
   }, [bridge, dailyPlans, actions, refresh]);
