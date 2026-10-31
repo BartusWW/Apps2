@@ -1,6 +1,6 @@
 import { executeCommand } from "./commands";
 import { bootstrapV3State, loadV3State, saveV3State, transactV3State } from "./storage";
-import { scheduleDay } from "./scheduler";
+import { scheduleRecurringForDate } from "./scheduler";
 
 // Runtime is the only intended write gateway for UI code. Components dispatch
 // commands; they never mutate persisted instances directly.
@@ -17,7 +17,7 @@ export function createV3Runtime({ storage = globalThis?.localStorage, now = () =
   );
 
   const schedule = ({ date, rules = [], actions = [] } = {}) => transactV3State(
-    state => ({ ...state, instances: scheduleDay(state.instances, { date, rules, actions }) }),
+    state => ({ ...state, instances: scheduleRecurringForDate(state.instances, rules, actions, date) }),
     storage,
     now()
   );
