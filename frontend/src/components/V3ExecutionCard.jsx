@@ -1,12 +1,11 @@
 import * as Icons from "lucide-react";
-import { BarChart3,Check,Repeat2,RotateCcw,Trash2,X } from "lucide-react";
+import { BarChart3,Check,Clock3,Repeat2,RotateCcw,Trash2,X } from "lucide-react";
 
 const ACC={red:"#ef4444",emerald:"#10b981",green:"#22c55e",sky:"#38bdf8",blue:"#3b82f6",violet:"#a78bfa",amber:"#f59e0b",orange:"#f97316",yellow:"#eab308",cyan:"#06b6d4",pink:"#ec4899",indigo:"#6366f1",neutral:"#a3a3a3",white:"#e5e7eb"};
 const colorOf=v=>/^#[0-9a-f]{6}$/i.test(v||"")?v:ACC[v]||null;
 
-// Presentation-only adapter for Core 3.0. It intentionally mirrors the proven
-// DailyPlanCard visual language while all execution state/actions stay in v3.
-export default function V3ExecutionCard({item,action,category,closed,canWrite,onLog,onDismiss}){
+// Exact legacy DailyPlanCard presentation, backed only by Core 3.0 execution state.
+export default function V3ExecutionCard({item,action,category,closed,canWrite,onLog,onDismiss,onDelay}){
   const habit=item.kind==="habit"||item.kind==="habit-recovery";
   const subName=action?.subcategory;
   const sub=category?.subcategories?.find(s=>(typeof s==="string"?s:s?.name)===subName);
@@ -20,7 +19,7 @@ export default function V3ExecutionCard({item,action,category,closed,canWrite,on
   const frogBg=item.frog?"linear-gradient(135deg,rgba(82,8,12,.96),rgba(38,5,8,.98))":"#0a0a0a";
   const label=habit?(item.secondChance?"SECOND CHANCE":`BUILD HABIT · +0%`):(item.frog?"FROG +10%":"TASK");
 
-  return <article className="border rounded-xl overflow-hidden" style={{borderColor:item.frog?"#120305":accent,background:frogBg}}>
+  return <article data-category-color className="border rounded-xl overflow-hidden" style={{borderColor:item.frog?"#120305":accent,background:frogBg}}>
     <div className="p-3.5 flex gap-3">
       <div className="w-10 h-10 rounded-xl border flex items-center justify-center shrink-0" style={{borderColor:accent,color:accent}}>{item.secondChance?<RotateCcw size={17}/>:<Icon size={17}/>}</div>
       <div className="flex-1 min-w-0">
@@ -37,8 +36,8 @@ export default function V3ExecutionCard({item,action,category,closed,canWrite,on
       </div>
     </div>
     {canWrite&&item.active&&!closed&&<div className="border-t p-2 flex gap-1.5" style={{borderColor:`${accent}55`}}>
-      {habit?<button type="button" onClick={()=>onLog(item)} className="flex-1 rounded-lg py-2.5 text-[10px] uppercase font-extrabold" style={{background:accent,color:"#050505"}}><BarChart3 size={13} className="inline mr-1"/>Log</button>:<button type="button" onClick={()=>onLog(item)} className="flex-1 rounded-lg py-2.5 text-[10px] font-extrabold" style={{background:accent,color:"#050505"}}><Check size={12} className="inline"/> Done</button>}
-      <button type="button" onClick={()=>onDismiss("wont-do")} className="border rounded-lg px-3 text-red-400" aria-label="Won't do"><X size={12}/></button>
+      {habit?<button type="button" onClick={()=>onLog(item)} className="flex-1 rounded-lg py-2.5 text-[10px] uppercase font-extrabold" style={{background:accent,color:"#050505"}}><BarChart3 size={13} className="inline mr-1"/>Log</button>:<><button type="button" onClick={()=>onLog(item)} className="flex-1 rounded-lg text-[10px] font-extrabold" style={{background:accent,color:"#050505"}}><Check size={12} className="inline"/> Done</button><button type="button" onClick={()=>onDelay?.(item)} className="border rounded-lg px-3" aria-label="Delay"><Clock3 size={12}/></button><button type="button" onClick={()=>onDismiss("wont-do")} className="border rounded-lg px-3 text-red-400" aria-label="Won't do"><X size={12}/></button></>}
+      {habit&&action?.scoringType==="per-unit"&&<button type="button" className="border rounded-lg px-2 text-[8px] uppercase font-bold text-neutral-500" disabled>Stats</button>}
       <button type="button" onClick={()=>onDismiss("drop")} className="border rounded-lg px-3 text-neutral-600" aria-label="Drop"><Trash2 size={12}/></button>
     </div>}
   </article>;
