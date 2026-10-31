@@ -10,7 +10,7 @@ const occurrenceKey = x => [
 
 // CBE 3.1 planning ingress. This is NOT execution synchronization.
 // dailyPlans may create an occurrence and may change planning-owned fields such
-// as target/FROG classification. They can never write Core progress or status.
+// as target/FROG/scope classification. They can never write Core progress/status.
 export function ingestLegacyOccurrences(state, { dailyPlans = {}, actions = [] } = {}) {
   const incoming = legacyPlanToInstances(dailyPlans, actions);
   const current = [...(Array.isArray(state?.instances) ? state.instances : [])];
@@ -33,24 +33,26 @@ export function ingestLegacyOccurrences(state, { dailyPlans = {}, actions = [] }
       : Number(existing.target)||0;
     const frog = !!planned.metadata?.frog;
     const currentFrog = !!existing.metadata?.frog;
+    const executionScope = planned.metadata?.executionScope || "daily";
+    const currentScope = existing.metadata?.executionScope || "daily";
     const executionCeiling = Math.max(
       Number(existing.metadata?.executionCeiling)||0,
       Number(planned.metadata?.executionCeiling)||0,
       plannedTarget
     );
 
-    // FROG is planning metadata, not execution state. Keep it synchronized even
-    // after completion so Execution Live/history classify the occurrence exactly
-    // the same way as the visible daily card. Progress/status remain Core-owned.
+    // FROG and execution scope are planning metadata, not execution state. Keep
+    // them synchronized even after completion; progress/status stay Core-owned.
     if (
       plannedTarget !== Number(existing.target||0) ||
       frog !== currentFrog ||
+      executionScope !== currentScope ||
       executionCeiling !== Number(existing.metadata?.executionCeiling||0)
     ) {
       const next={
         ...existing,
         target:plannedTarget,
-        metadata:{...existing.metadata,frog,executionCeiling},
+        metadata:{...existing.metadata,frog,executionScope,weeklyFrog:!!planned.metadata?.weeklyFrog,weeklyAction:!!planned.metadata?.weeklyAction,executionCeiling},
       };
       current[match.index]=next;
       byKey.set(key,{instance:next,index:match.index});

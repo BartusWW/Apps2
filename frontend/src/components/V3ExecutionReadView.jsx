@@ -13,7 +13,10 @@ export default function V3ExecutionReadView({date=todayISO()}){
   const state=useMemo(()=>v3.read(),[v3,v3.revision]);
   const[closing,setClosing]=useState(false),[resolutions,setResolutions]=useState({});
   const canClose=v3.isEnabled("dayClose"),closed=!!state?.closedDays?.[date];
-  const unresolved=items.filter(x=>x.active&&x.kind!=="habit"&&x.kind!=="habit-recovery");
+  // Weekly-focus occurrences stay executable on Today's Actions, but belong to
+  // the weekly lifecycle. Daily Close Day must never carry/drop/resolve them.
+  const dailyItems=items.filter(x=>x.executionScope!=="weekly");
+  const unresolved=dailyItems.filter(x=>x.active&&x.kind!=="habit"&&x.kind!=="habit-recovery");
   const left=x=>Math.max(0,Number(x.remaining)||0);
   const resolutionFor=x=>resolutions[x.id]||{tomorrow:left(x),drop:0,wontDo:0};
   const setWhole=(x,key)=>setResolutions(p=>({...p,[x.id]:{tomorrow:0,drop:0,wontDo:0,[key]:left(x)}}));
@@ -21,9 +24,10 @@ export default function V3ExecutionReadView({date=todayISO()}){
   const valid=x=>{const q=resolutionFor(x);return Math.round((q.tomorrow+q.drop+q.wontDo)*1000)===Math.round(left(x)*1000)};
 
   const stats=useMemo(()=>{
-    const tasks=items.filter(x=>x.kind!=="habit"&&x.kind!=="habit-recovery"),habits=items.filter(x=>x.kind==="habit"||x.kind==="habit-recovery");
-    // A quantity target (10 km, 60 min, 20 reps) is one task occurrence, not N tasks.
-    // Fixed stack tasks still count each stack unit separately.
+    // Execution Live is a DAILY commitment score. Weekly-focus work may be done
+    // today and still earns CBE, but it cannot inflate the daily denominator.
+    const scoped=items.filter(x=>x.executionScope!=="weekly");
+    const tasks=scoped.filter(x=>x.kind!=="habit"&&x.kind!=="habit-recovery"),habits=scoped.filter(x=>x.kind==="habit"||x.kind==="habit-recovery");
     const taskWeight=x=>x.mode==="quantity"?1:Math.max(1,Number(x.target)||1);
     const taskProgress=x=>x.mode==="quantity"?(x.complete?1:0):Math.min(taskWeight(x),Math.max(0,Number(x.progress)||0));
     const taskTotal=r(tasks.reduce((s,x)=>s+taskWeight(x),0)),taskDone=r(tasks.reduce((s,x)=>s+taskProgress(x),0));
