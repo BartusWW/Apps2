@@ -6,6 +6,11 @@ import { useApp } from "./AppContext";
 
 const V3ExecutionContext = createContext(null);
 
+// CBE 3.1 ownership rule:
+// - dailyPlans may introduce/schedule occurrences only.
+// - Core is the only owner of execution progress/status/lifecycle.
+// - Entries are an append-only scoring/history projection of accepted Core commands.
+// There is deliberately no Entries -> Core or legacy execution -> Core reconciliation here.
 export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], storage = globalThis?.localStorage }) {
   const { entries, addEntryAt } = useApp();
   const bridgeRef = useRef(null);
@@ -20,13 +25,12 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], s
     return result;
   }, [refresh]);
 
-  // Until every execution surface writes through Core, Entries remain part of
-  // the migration projection. Shadow sync is monotonic and cannot reopen a
-  // terminal v3 instance, so it is safe even while executionWrite is enabled.
+  // Planning is one-way. New legacy plan occurrences may enter Core, but legacy
+  // progress/status can never overwrite an existing Core instance.
   useEffect(() => {
-    bridge.shadowSync({ dailyPlans, actions, entries });
+    bridge.ingestLegacy({ dailyPlans, actions });
     refresh();
-  }, [bridge, dailyPlans, actions, entries, refresh]);
+  }, [bridge, dailyPlans, actions, refresh]);
 
   const execute = useCallback(command => {
     const result = bridge.dispatchWithEffect({ command, actions, entries });
