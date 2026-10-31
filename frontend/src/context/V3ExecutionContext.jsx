@@ -1,13 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createV3Bridge } from "../core/v3/bridge";
+import { COMMAND } from "../core/v3/commands";
 import { todayISO } from "../lib/dateUtils";
+import { useApp } from "./AppContext";
 
 const V3ExecutionContext = createContext(null);
 
-// Isolated React boundary for the v3 execution core. It intentionally does not
-// replace AppContext yet: rollout is feature-flagged and can be compared against
-// legacy state before any production lifecycle ownership is transferred.
+// Isolated React boundary for the v3 execution core. During migration AppContext
+// remains the persistence owner for scoring entries while v3 owns execution state.
 export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], storage = globalThis?.localStorage }) {
+  const { entries, addEntryAt } = useApp();
   const bridgeRef = useRef(null);
   if (!bridgeRef.current) bridgeRef.current = createV3Bridge({ storage, dailyPlans, actions });
   const bridge = bridgeRef.current;
@@ -28,6 +30,17 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], s
     refresh();
   }, [bridge, dailyPlans, actions, refresh]);
 
+  // Single React write gateway. Core commits first; only the scoring effect derived
+  // from that accepted transition is appended to legacy Entries. addEntryAt keeps
+  // the effect id intact so retries can be detected by the bridge.
+  const execute = useCallback(command => {
+    const result = bridge.dispatchWithEffect({ command, actions, entries });
+    if (!result) return null;
+    if (result.effect) addEntryAt(result.effect);
+    refresh();
+    return result;
+  }, [bridge, actions, entries, addEntryAt, refresh]);
+
   const value = useMemo(() => ({
     revision,
     flags: bridge.flags(),
@@ -37,13 +50,14 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], s
     summary: bridge.summary,
     today: () => bridge.day(todayISO()),
     todaySummary: () => bridge.summary(todayISO()),
-    log: run(bridge.log),
-    complete: run(bridge.complete),
-    dismiss: run(bridge.dismiss),
+    execute,
+    log: (instanceId, amount = 1, options = {}) => execute({ type: COMMAND.LOG, instanceId, amount, ...options }),
+    complete: (instanceId, options = {}) => execute({ type: COMMAND.COMPLETE, instanceId, ...options }),
+    dismiss: (instanceId, reason = "dismissed", options = {}) => execute({ type: COMMAND.DISMISS, instanceId, reason, ...options }),
     closeDay: run(bridge.closeDay),
     schedule: run(bridge.schedule),
     refresh,
-  }), [bridge, revision, run, refresh]);
+  }), [bridge, revision, execute, run, refresh]);
 
   return <V3ExecutionContext.Provider value={value}>{children}</V3ExecutionContext.Provider>;
 }
