@@ -6,8 +6,6 @@ import { useApp } from "./AppContext";
 
 const V3ExecutionContext = createContext(null);
 
-// Isolated React boundary for the v3 execution core. During migration AppContext
-// remains the persistence owner for scoring entries while v3 owns execution state.
 export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], storage = globalThis?.localStorage }) {
   const { entries, addEntryAt } = useApp();
   const bridgeRef = useRef(null);
@@ -22,17 +20,16 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], s
     return result;
   }, [refresh]);
 
-  // Shadow sync is strictly a migration mechanism. The moment v3 owns writes,
-  // legacy state must no longer be allowed to feed execution state back into Core.
   useEffect(() => {
-    if (bridge.isEnabled("executionWrite")) return;
-    bridge.shadowSync({ dailyPlans, actions });
+    // Once v3 owns execution, legacy planning is still temporarily allowed to
+    // create new plan occurrences. Import only missing occurrences; never import
+    // legacy progress/status back into Core. Before write ownership, retain the
+    // full shadow synchronizer for comparison.
+    if (bridge.isEnabled("executionWrite")) bridge.ingestLegacy({ dailyPlans, actions });
+    else bridge.shadowSync({ dailyPlans, actions });
     refresh();
   }, [bridge, dailyPlans, actions, refresh]);
 
-  // Single React write gateway. Core commits first; only the scoring effect derived
-  // from that accepted transition is appended to legacy Entries. addEntryAt keeps
-  // the effect id intact so retries can be detected by the bridge.
   const execute = useCallback(command => {
     const result = bridge.dispatchWithEffect({ command, actions, entries });
     if (!result) return null;
