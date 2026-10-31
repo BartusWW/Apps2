@@ -2,22 +2,11 @@ import { createV3Runtime } from "./runtime";
 import { createV3UIAdapter } from "./uiAdapter";
 import { isV3FeatureEnabled, loadV3Flags } from "./featureFlags";
 
-// Transitional bridge used by React/AppContext while v2 lifecycle still exists.
-// v3 remains opt-in until each subsystem passes its regression gate.
-export function createV3Bridge({
-  storage = globalThis?.localStorage,
-  now,
-  dailyPlans = {},
-  actions = [],
-} = {}) {
+export function createV3Bridge({ storage = globalThis?.localStorage, now, dailyPlans = {}, actions = [] } = {}) {
   const runtime = createV3Runtime({ storage, now });
   runtime.bootstrap({ dailyPlans, actions });
 
-  const adapter = createV3UIAdapter({
-    getState: runtime.read,
-    dispatch: runtime.dispatch,
-  });
-
+  const adapter = createV3UIAdapter({ getState: runtime.read, dispatch: runtime.dispatch });
   const flags = () => loadV3Flags(storage);
 
   return {
@@ -27,6 +16,7 @@ export function createV3Bridge({
     day: date => adapter.day(date),
     summary: date => adapter.summary(date),
     shadowSync: runtime.shadowSync,
+    ingestLegacy: runtime.ingestLegacy,
     dispatchWithEffect: input => {
       if (!isV3FeatureEnabled(flags(), "executionWrite")) return null;
       return runtime.dispatchWithEffect(input);
