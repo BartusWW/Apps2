@@ -1,7 +1,7 @@
 import { executeCommand } from "./commands";
 import { bootstrapV3State, loadV3State, saveV3State, transactV3State } from "./storage";
 import { scheduleRecurringForDate } from "./scheduler";
-import { syncLegacyShadow } from "./shadowSync";
+import { ingestLegacyOccurrences, syncLegacyShadow } from "./shadowSync";
 import { planExecutionEffect } from "./writeEffects";
 
 // Runtime is the only intended write gateway for UI code. Components dispatch
@@ -18,9 +18,6 @@ export function createV3Runtime({ storage = globalThis?.localStorage, now = () =
     now()
   );
 
-  // Returns both the committed Core state and the legacy-compatible scoring
-  // entry derived from the actual transition. Persisting the entry remains the
-  // React/AppContext responsibility during the migration window.
   const dispatchWithEffect = ({ command, actions = [], entries = [] } = {}) => {
     if (!command?.type) throw new Error("CBE v3 effect dispatch requires command");
     const beforeState = read();
@@ -34,13 +31,7 @@ export function createV3Runtime({ storage = globalThis?.localStorage, now = () =
       storage,
       now()
     );
-    const effect = planExecutionEffect({
-      beforeState,
-      afterState,
-      command: normalizedCommand,
-      actions,
-      entries,
-    });
+    const effect = planExecutionEffect({ beforeState, afterState, command: normalizedCommand, actions, entries });
     return { state: afterState, effect, command: normalizedCommand };
   };
 
@@ -51,12 +42,14 @@ export function createV3Runtime({ storage = globalThis?.localStorage, now = () =
   );
 
   const shadowSync = ({ dailyPlans = {}, actions = [] } = {}) => transactV3State(
-    state => syncLegacyShadow(state, { dailyPlans, actions }),
-    storage,
-    now()
+    state => syncLegacyShadow(state, { dailyPlans, actions }), storage, now()
+  );
+
+  const ingestLegacy = ({ dailyPlans = {}, actions = [] } = {}) => transactV3State(
+    state => ingestLegacyOccurrences(state, { dailyPlans, actions }), storage, now()
   );
 
   const replace = state => saveV3State(state, storage, now());
 
-  return { read, bootstrap, dispatch, dispatchWithEffect, schedule, shadowSync, replace };
+  return { read, bootstrap, dispatch, dispatchWithEffect, schedule, shadowSync, ingestLegacy, replace };
 }
