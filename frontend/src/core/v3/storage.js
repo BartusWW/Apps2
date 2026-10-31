@@ -8,7 +8,7 @@ const safeParse = raw => {
 };
 
 export function emptyV3State() {
-  return { schemaVersion: V3_SCHEMA, migratedAt: null, updatedAt: null, instances: [] };
+  return { schemaVersion: V3_SCHEMA, migratedAt: null, updatedAt: null, instances: [], closedDays: {} };
 }
 
 export function normalizeV3State(value) {
@@ -18,6 +18,7 @@ export function normalizeV3State(value) {
     migratedAt: src.migratedAt || null,
     updatedAt: src.updatedAt || null,
     instances: Array.isArray(src.instances) ? src.instances.filter(Boolean) : [],
+    closedDays: src.closedDays && typeof src.closedDays === "object" && !Array.isArray(src.closedDays) ? src.closedDays : {},
   };
 }
 
