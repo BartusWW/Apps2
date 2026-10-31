@@ -24,4 +24,4 @@ export function ambitionTiers(action){return [
 ].filter(x=>x.target>0).sort((a,b)=>a.target-b.target)}
 export function crossedAmbitionTiers(action,before,after){return ambitionTiers(action).filter(t=>Number(before)<t.target&&Number(after)>=t.target)}
 export function productiveWeight(entry,context={}){if(Number(entry?.points)<=0)return 0;if(entry?.ambitionBonus)return 1.35;if(entry?.frog)return 1.25;if(context.goalActionIds?.has(entry?.actionId))return 1.15;if(context.missionActionIds?.has(entry?.actionId))return 1.15;if(entry?.planItemId||entry?.plannedFor)return 1;return .65}
-export function productiveCBE(entries,context={}){return r1((entries||[]).reduce((s,e)=>s+Math.max(0,Number(e.points)||0)*productiveWeight(e,context),0))}
+export function productiveCBE(entries,context={}){return r1((entries||[]).reduce((s,e)=>{const points=Math.max(0,Number(e.points)||0);if(!points)return s;const embedded=Math.min(points,Math.max(0,Number(e.ambitionBonusPoints)||0));if(!embedded)return s+points*productiveWeight(e,context);const base=points-embedded;return s+base*productiveWeight({...e,points:base},context)+embedded*1.35},0))}
