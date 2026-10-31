@@ -1,9 +1,14 @@
 import { useRef, useState } from "react";
 import { useApp } from "../../context/AppContext";
 import { exportAllData, importAllData } from "../../lib/storage";
+import { metricBackupKeys } from "../../lib/metricStorage";
+import { missionBackupKey } from "../../lib/missionStorage";
+import { V3_STATE_KEY } from "../../core/v3/storage";
 import { localISO } from "../../lib/dateUtils";
 import { Download, Upload, Trash2, Database, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+
+const EXTENDED_BACKUP_KEYS = [...metricBackupKeys(), missionBackupKey, V3_STATE_KEY];
 
 const RESET_OPTIONS = [
   { id: "history", label: "Log history & CBE entries", description: "Completed actions, score history and output history", defaultOn: true },
@@ -33,6 +38,27 @@ function readSettings() {
   try { return JSON.parse(localStorage.getItem("cbe.settings.v1") || "{}"); } catch { return {}; }
 }
 
+function exportCompleteBackup() {
+  const payload = exportAllData();
+  const data = { ...(payload.data || {}) };
+  for (const key of EXTENDED_BACKUP_KEYS) {
+    const raw = localStorage.getItem(key);
+    if (raw === null) continue;
+    try { data[key] = JSON.parse(raw); } catch { data[key] = raw; }
+  }
+  return { ...payload, data };
+}
+
+function importCompleteBackup(payload) {
+  importAllData(payload);
+  for (const key of EXTENDED_BACKUP_KEYS) localStorage.removeItem(key);
+  for (const key of EXTENDED_BACKUP_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(payload?.data || {}, key)) continue;
+    const value = payload.data[key];
+    localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+  }
+}
+
 export default function DataManagement() {
   const { reloadFromStorage, entries } = useApp();
   const fileRef = useRef(null);
@@ -41,8 +67,8 @@ export default function DataManagement() {
   const [selected, setSelected] = useState(() => Object.fromEntries(RESET_OPTIONS.map(o => [o.id, o.defaultOn])));
 
   const handleExport = () => {
-    downloadJSON(exportAllData());
-    toast("Backup downloaded", { description: `${entries.length} entries`, className: "!bg-neutral-900 !border-emerald-500/30 !text-white" });
+    downloadJSON(exportCompleteBackup());
+    toast("Backup downloaded", { description: `${entries.length} entries · complete data`, className: "!bg-neutral-900 !border-emerald-500/30 !text-white" });
   };
 
   const handleImport = async (event) => {
@@ -51,7 +77,7 @@ export default function DataManagement() {
     try {
       const payload = JSON.parse(await file.text());
       if (!window.confirm(`Import will REPLACE all current data with the contents of "${file.name}". Continue?`)) return;
-      importAllData(payload);
+      importCompleteBackup(payload);
       reloadFromStorage();
       toast("Data imported. Reloading…", { className: "!bg-neutral-900 !border-emerald-500/30 !text-white" });
       setTimeout(() => window.location.reload(), 700);
@@ -79,8 +105,6 @@ export default function DataManagement() {
       localStorage.setItem("cbe.settings.v1", JSON.stringify(settings));
     }
 
-    // Synchronise React state immediately. Without this, mounted components can still
-    // hold old recurring rules / daily plans and write the just-reset tasks back.
     reloadFromStorage();
     toast("Selected data reset. Reloading…", { className: "!bg-neutral-900 !border-red-500/30 !text-white" });
     setTimeout(() => window.location.reload(), 250);
@@ -94,7 +118,7 @@ export default function DataManagement() {
 
       <div className="bg-neutral-900 border border-white/10 rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2"><Download size={14} className="text-emerald-400" /><p className="text-sm font-semibold text-white">Export Backup</p></div>
-        <p className="text-xs text-neutral-400">Download a complete JSON backup before making destructive changes.</p>
+        <p className="text-xs text-neutral-400">Download a complete JSON backup including execution data, Goals, Missions, Metrics and metric history.</p>
         <button type="button" onClick={handleExport} className="w-full text-xs uppercase tracking-widest font-semibold px-3 py-2.5 rounded-lg bg-emerald-500 text-black hover:bg-emerald-400">Export to JSON</button>
       </div>
 
