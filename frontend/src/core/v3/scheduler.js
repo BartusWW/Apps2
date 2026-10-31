@@ -18,7 +18,7 @@ export function recurringRuleToCandidate(rule, action, date) {
   const quantity = action.scoringType === "per-unit";
   const habit = !!(rule.habit?.enabled || rule.habit === true || rule.type === "habit");
   const rawTarget = quantity
-    ? (rule.habit?.amount ?? rule.amount ?? rule.target ?? 0)
+    ? (rule.habit?.amount ?? rule.amount ?? rule.target ?? 1)
     : (rule.stackCount ?? rule.count ?? rule.target ?? 1);
   return createInstance({
     date,
@@ -26,7 +26,7 @@ export function recurringRuleToCandidate(rule, action, date) {
     name: rule.name || action.name || "",
     kind: habit ? "habit" : "task",
     mode: quantity ? "quantity" : "fixed",
-    target: quantity ? Math.max(0, num(rawTarget)) : Math.max(1, num(rawTarget) || 1),
+    target: quantity ? Math.max(1, num(rawTarget) || 1) : Math.max(1, num(rawTarget) || 1),
     unit: action.unit || rule.habit?.unit || rule.unit || "unit",
     recurringId: rule.id,
     source: "recurring",
@@ -39,5 +39,19 @@ export function scheduleRecurringForDate(instances, recurringTasks = [], actions
   const candidates = (recurringTasks || [])
     .map(rule => recurringRuleToCandidate(rule, actionMap[rule.actionId], date))
     .filter(Boolean);
-  return ensureScheduledInstances(instances, candidates);
+
+  // Repair malformed zero-target recurring quantity instances created by older
+  // CBE 3.1 builds. They looked complete at 0/0 while remaining ACTIVE, which
+  // made the same card appear in both Today's Actions and Finished.
+  const repaired = (Array.isArray(instances) ? instances : []).map(instance => {
+    if (instance.status !== "active" || Number(instance.target) > 0) return instance;
+    const candidate = candidates.find(c => c.id === instance.id || (
+      c.date === instance.date &&
+      c.actionId === instance.actionId &&
+      (c.recurringId || null) === (instance.recurringId || null)
+    ));
+    return candidate ? { ...instance, target: candidate.target, unit: candidate.unit } : instance;
+  });
+
+  return ensureScheduledInstances(repaired, candidates);
 }
