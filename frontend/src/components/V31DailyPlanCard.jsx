@@ -23,7 +23,7 @@ export default function V31DailyPlanCard({date}){
   const actionMap=useMemo(()=>Object.fromEntries(actions.map(a=>[a.id,a])),[actions]);
   const categoryMap=useMemo(()=>Object.fromEntries((settings.categories||[]).map(c=>[c.name,c])),[settings.categories]);
   const recurringMap=useMemo(()=>Object.fromEntries((settings.recurringTasks||[]).map(r=>[r.id,r])),[settings.recurringTasks]);
-  const [showAdd,setShowAdd]=useState(false),[showTasks,setShowTasks]=useState(true),[showFinished,setShowFinished]=useState(false),[search,setSearch]=useState(""),[actionId,setActionId]=useState(""),[quickNew,setQuickNew]=useState(false),[planning,setPlanning]=useState(false),[planDates,setPlanDates]=useState([tomorrowISO()]),[plannerOpen,setPlannerOpen]=useState(false),[quantity,setQuantity]=useState(null),[pending,setPending]=useState(null);
+  const [showAdd,setShowAdd]=useState(true),[showTasks,setShowTasks]=useState(true),[showFinished,setShowFinished]=useState(false),[search,setSearch]=useState(""),[actionId,setActionId]=useState(""),[quickNew,setQuickNew]=useState(false),[planning,setPlanning]=useState(false),[planDates,setPlanDates]=useState([tomorrowISO()]),[plannerOpen,setPlannerOpen]=useState(false),[quantity,setQuantity]=useState(null),[pending,setPending]=useState(null);
 
   const activeProfile=useMemo(()=>(settings.priorityProfiles||[]).find(p=>p.id===settings.activePriorityProfileId)||null,[settings]);
   const profileName=activeProfile?.name||"Balanced";
