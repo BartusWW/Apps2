@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createV3Bridge } from "../core/v3/bridge";
 import { todayISO } from "../lib/dateUtils";
 
@@ -19,6 +19,13 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], s
     if (result) refresh();
     return result;
   }, [refresh]);
+
+  // While v2 owns production execution, mirror newly observed legacy changes
+  // into v3 without allowing legacy state to reopen terminal v3 occurrences.
+  useEffect(() => {
+    bridge.shadowSync({ dailyPlans, actions });
+    refresh();
+  }, [bridge, dailyPlans, actions, refresh]);
 
   const value = useMemo(() => ({
     revision,
