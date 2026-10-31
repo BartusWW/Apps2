@@ -1,13 +1,6 @@
 import { INSTANCE_STATUS } from "./engine";
 import { legacyPlanToInstances } from "./legacyAdapter";
 
-const TERMINAL = new Set([
-  INSTANCE_STATUS.COMPLETED,
-  INSTANCE_STATUS.DISMISSED,
-  INSTANCE_STATUS.MISSED,
-  INSTANCE_STATUS.RESOLVED,
-]);
-
 const occurrenceKey = x => [
   x.date,
   x.actionId,
@@ -16,58 +9,39 @@ const occurrenceKey = x => [
   x.metadata?.legacyItemId || "",
 ].join("::");
 
-export function ingestLegacyOccurrences(state, { dailyPlans = {}, actions = [], entries = [] } = {}) {
-  const incoming = legacyPlanToInstances(dailyPlans, actions, entries);
+// CBE 3.1 planning ingress. This is NOT execution synchronization.
+// dailyPlans may create an occurrence and may change its planned target while
+// it is still active. They can never write Core progress or execution status.
+export function ingestLegacyOccurrences(state, { dailyPlans = {}, actions = [] } = {}) {
+  const incoming = legacyPlanToInstances(dailyPlans, actions);
   const current = [...(Array.isArray(state?.instances) ? state.instances : [])];
-  const keys = new Set(current.map(occurrenceKey));
+  const byKey = new Map(current.map((x,index)=>[occurrenceKey(x),{instance:x,index}]));
   let changed = false;
 
-  for (const legacy of incoming) {
-    const key = occurrenceKey(legacy);
-    if (keys.has(key)) continue;
-    current.push(legacy);
-    keys.add(key);
-    changed = true;
-  }
-
-  return changed ? { ...state, instances: current } : state;
-}
-
-// Migration shadow: legacy Entries are still a real execution source until the
-// last legacy logging surface is routed through Core. Sync may only advance an
-// ACTIVE instance; terminal v3 decisions are never reopened.
-export function syncLegacyShadow(state, { dailyPlans = {}, actions = [], entries = [] } = {}) {
-  const incoming = legacyPlanToInstances(dailyPlans, actions, entries);
-  const current = [...(Array.isArray(state?.instances) ? state.instances : [])];
-  const byKey = new Map(current.map((x, index) => [occurrenceKey(x), { instance: x, index }]));
-  let changed = false;
-
-  for (const legacy of incoming) {
-    const key = occurrenceKey(legacy);
+  for (const planned of incoming) {
+    const key = occurrenceKey(planned);
     const match = byKey.get(key);
     if (!match) {
-      current.push(legacy);
-      byKey.set(key, { instance: legacy, index: current.length - 1 });
+      current.push(planned);
+      byKey.set(key,{instance:planned,index:current.length-1});
       changed = true;
       continue;
     }
-
     const existing = match.instance;
-    if (TERMINAL.has(existing.status)) continue;
-
-    const nextProgress = Math.max(Number(existing.progress || 0), Number(legacy.progress || 0));
-    const nextStatus = TERMINAL.has(legacy.status) ? legacy.status : existing.status;
-    if (nextProgress !== Number(existing.progress || 0) || nextStatus !== existing.status) {
-      const next = {
-        ...existing,
-        progress: Math.min(Number(existing.target || 0), nextProgress),
-        status: nextStatus,
-      };
-      current[match.index] = next;
-      byKey.set(key, { instance: next, index: match.index });
-      changed = true;
+    if (existing.status !== INSTANCE_STATUS.ACTIVE) continue;
+    const plannedTarget = Math.max(Number(existing.progress)||0, Number(planned.target)||0);
+    if (plannedTarget !== Number(existing.target||0)) {
+      const next={...existing,target:plannedTarget};
+      current[match.index]=next;
+      byKey.set(key,{instance:next,index:match.index});
+      changed=true;
     }
   }
-
   return changed ? { ...state, instances: current } : state;
+}
+
+// Kept only so old imports do not crash during the 3.1 branch migration.
+// It intentionally delegates to planning ingress and never synchronizes execution.
+export function syncLegacyShadow(state, input = {}) {
+  return ingestLegacyOccurrences(state, input);
 }
