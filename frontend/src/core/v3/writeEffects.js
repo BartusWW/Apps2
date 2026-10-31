@@ -32,11 +32,11 @@ export function planExecutionEffect({ beforeState, afterState, command, actions 
   if (hasExecutionEffect(entries, effectId)) return null;
 
   const bonuses = crossedBonuses(command, n(before.progress), n(after.progress));
-  const ambitionBonus = round(bonuses.reduce((sum, tier) => sum + n(tier?.bonus), 0));
+  const ambitionBonusPoints = round(bonuses.reduce((sum, tier) => sum + n(tier?.bonus), 0));
   const points = command.pointsPerAmount != null
-    ? round(amount * n(command.pointsPerAmount) + ambitionBonus)
+    ? round(amount * n(command.pointsPerAmount) + ambitionBonusPoints)
     : command.points != null
-      ? round(n(command.points) + ambitionBonus)
+      ? round(n(command.points) + ambitionBonusPoints)
       : null;
 
   return buildExecutionEntry({
@@ -51,7 +51,7 @@ export function planExecutionEffect({ beforeState, afterState, command, actions 
       v3CommandType: command.type,
       v3ProgressBefore: n(before.progress),
       v3ProgressAfter: n(after.progress),
-      ...(ambitionBonus > 0 ? { ambitionBonus, ambitionTiers: bonuses.map(x => x.id) } : {}),
+      ...(ambitionBonusPoints > 0 ? { ambitionBonusPoints, ambitionTiers: bonuses.map(x => x.id) } : {}),
     },
   });
 }
