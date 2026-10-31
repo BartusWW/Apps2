@@ -21,10 +21,6 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], s
   }, [refresh]);
 
   useEffect(() => {
-    // Once v3 owns execution, legacy planning is still temporarily allowed to
-    // create new plan occurrences. Import only missing occurrences; never import
-    // legacy progress/status back into Core. Before write ownership, retain the
-    // full shadow synchronizer for comparison.
     if (bridge.isEnabled("executionWrite")) bridge.ingestLegacy({ dailyPlans, actions });
     else bridge.shadowSync({ dailyPlans, actions });
     refresh();
@@ -50,6 +46,7 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, actions = [], s
     execute,
     log: (instanceId, amount = 1, options = {}) => execute({ type: COMMAND.LOG, instanceId, amount, ...options }),
     complete: (instanceId, options = {}) => execute({ type: COMMAND.COMPLETE, instanceId, ...options }),
+    delay: (instanceId, options = {}) => execute({ type: COMMAND.DELAY, instanceId, ...options }),
     dismiss: (instanceId, reason = "dismissed", options = {}) => execute({ type: COMMAND.DISMISS, instanceId, reason, ...options }),
     closeDay: run(bridge.closeDay),
     schedule: run(bridge.schedule),
