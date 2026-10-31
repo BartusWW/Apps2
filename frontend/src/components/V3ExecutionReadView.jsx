@@ -22,8 +22,12 @@ export default function V3ExecutionReadView({date=todayISO()}){
 
   const stats=useMemo(()=>{
     const tasks=items.filter(x=>x.kind!=="habit"&&x.kind!=="habit-recovery"),habits=items.filter(x=>x.kind==="habit"||x.kind==="habit-recovery");
-    const taskTotal=r(tasks.reduce((s,x)=>s+Math.max(1,Number(x.target)||1),0)),taskDone=r(tasks.reduce((s,x)=>s+Math.min(Math.max(1,Number(x.target)||1),Math.max(0,Number(x.progress)||0)),0));
-    const frogs=tasks.filter(x=>x.frog),frogTotal=r(frogs.reduce((s,x)=>s+Math.max(1,Number(x.target)||1),0)),frogDone=r(frogs.reduce((s,x)=>s+Math.min(Math.max(1,Number(x.target)||1),Math.max(0,Number(x.progress)||0)),0));
+    // A quantity target (10 km, 60 min, 20 reps) is one task occurrence, not N tasks.
+    // Fixed stack tasks still count each stack unit separately.
+    const taskWeight=x=>x.mode==="quantity"?1:Math.max(1,Number(x.target)||1);
+    const taskProgress=x=>x.mode==="quantity"?(x.complete?1:0):Math.min(taskWeight(x),Math.max(0,Number(x.progress)||0));
+    const taskTotal=r(tasks.reduce((s,x)=>s+taskWeight(x),0)),taskDone=r(tasks.reduce((s,x)=>s+taskProgress(x),0));
+    const frogs=tasks.filter(x=>x.frog),frogTotal=r(frogs.reduce((s,x)=>s+taskWeight(x),0)),frogDone=r(frogs.reduce((s,x)=>s+taskProgress(x),0));
     const habitDone=habits.filter(x=>x.complete).length,habitTotal=habits.length;
     const taskScore=taskTotal?taskDone/taskTotal*100:100,frogScore=frogTotal?frogDone/frogTotal*100:100,habitScore=habitTotal?habitDone/habitTotal*100:100;
     const score=r(taskScore*.4+frogScore*.4+habitScore*.2);
