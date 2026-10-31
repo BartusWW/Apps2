@@ -1,4 +1,5 @@
 import { createInstance, INSTANCE_STATUS } from "./engine";
+import { ambitionTiers } from "../../lib/productivity";
 
 const num = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 
@@ -17,6 +18,10 @@ export function legacyPlanToInstances(dailyPlans = {}, actions = [], entries = [
       const target = quantity
         ? Math.max(0, num(item.habitAmount))
         : Math.max(1, num(item.stackCount) || 1);
+      const maxAmbitionTarget = quantity
+        ? ambitionTiers(action).reduce((max, tier) => Math.max(max, num(tier.target)), 0)
+        : 0;
+      const executionCeiling = Math.max(target, maxAmbitionTarget);
       const matchingEntries = dayEntries.filter(e => e?.actionId === item.actionId && !e?.ambitionBonus);
       const entryQuantity = matchingEntries.reduce((sum, e) => sum + num(e.quantity), 0);
       const stackEntries = matchingEntries.filter(e => e?.stack === true && (!e.planItemId || e.planItemId === item.id)).length;
@@ -35,9 +40,9 @@ export function legacyPlanToInstances(dailyPlans = {}, actions = [], entries = [
         recurringId: item.recurringId || null,
         source: item.carriedFrom ? "carryover" : "legacy-v2",
         carriedFrom: item.carriedFrom || null,
-        metadata: { legacyItemId: item.id || null, frog: !!item.frog },
+        metadata: { legacyItemId: item.id || null, frog: !!item.frog, executionCeiling },
       });
-      instance.progress = Math.min(target, progress);
+      instance.progress = Math.min(executionCeiling, progress);
       if (item.status === "done" || instance.progress >= target) instance.status = INSTANCE_STATUS.COMPLETED;
       else if (["dropped", "dismissed"].includes(item.status)) instance.status = INSTANCE_STATUS.DISMISSED;
       else if (item.status === "missed") instance.status = INSTANCE_STATUS.MISSED;
