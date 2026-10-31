@@ -1,10 +1,12 @@
 export const V3_FLAGS_KEY = "cbe.flags.v3";
 
+// CBE 3.0 rollout: execution reads/writes and day lifecycle now run through Core.
+// Persisted local overrides still win, so this remains reversible during regression testing.
 export const DEFAULT_V3_FLAGS = Object.freeze({
-  enabled: false,
-  executionRead: false,
-  executionWrite: false,
-  dayClose: false,
+  enabled: true,
+  executionRead: true,
+  executionWrite: true,
+  dayClose: true,
 });
 
 const safeParse = raw => {
