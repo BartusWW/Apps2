@@ -21,31 +21,36 @@ const occurrenceKey = x => [
 // never reopen or overwrite a terminal v3 decision.
 export function syncLegacyShadow(state, { dailyPlans = {}, actions = [] } = {}) {
   const incoming = legacyPlanToInstances(dailyPlans, actions);
-  const current = Array.isArray(state?.instances) ? state.instances : [];
-  const byKey = new Map(current.map(x => [occurrenceKey(x), x]));
+  const current = [...(Array.isArray(state?.instances) ? state.instances : [])];
+  const byKey = new Map(current.map((x, index) => [occurrenceKey(x), { instance: x, index }]));
   let changed = false;
 
   for (const legacy of incoming) {
     const key = occurrenceKey(legacy);
-    const existing = byKey.get(key);
-    if (!existing) {
+    const match = byKey.get(key);
+    if (!match) {
       current.push(legacy);
-      byKey.set(key, legacy);
+      byKey.set(key, { instance: legacy, index: current.length - 1 });
       changed = true;
       continue;
     }
+
+    const existing = match.instance;
     if (TERMINAL.has(existing.status)) continue;
 
     const nextProgress = Math.max(Number(existing.progress || 0), Number(legacy.progress || 0));
     const nextStatus = TERMINAL.has(legacy.status) ? legacy.status : existing.status;
     if (nextProgress !== Number(existing.progress || 0) || nextStatus !== existing.status) {
-      const next = { ...existing, progress: Math.min(Number(existing.target || 0), nextProgress), status: nextStatus };
-      const index = current.indexOf(existing);
-      current[index] = next;
-      byKey.set(key, next);
+      const next = {
+        ...existing,
+        progress: Math.min(Number(existing.target || 0), nextProgress),
+        status: nextStatus,
+      };
+      current[match.index] = next;
+      byKey.set(key, { instance: next, index: match.index });
       changed = true;
     }
   }
 
-  return changed ? { ...state, instances: [...current] } : state;
+  return changed ? { ...state, instances: current } : state;
 }
