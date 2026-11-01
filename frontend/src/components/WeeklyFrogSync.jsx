@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { useApp } from "../context/AppContext";
-import { todayISO } from "../lib/dateUtils";
+import { useV3Execution } from "../context/V3ExecutionContext";
 import { getSubcategoryPriorityPercent } from "../lib/priorityProfiles";
 const round1=n=>Math.round((Number(n)||0)*10)/10,uid=()=>`${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
 function mondayFor(iso){const d=new Date(`${iso}T12:00:00`),day=d.getDay(),diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);return d.toISOString().slice(0,10)}
-export default function WeeklyFrogSync(){const{settings,actions,dailyPlans,updateDailyPlan}=useApp(),d=todayISO(),focus=settings.weeklyFocus||{},weekKey=mondayFor(d);
+export default function WeeklyFrogSync(){const{settings,actions,dailyPlans,updateDailyPlan}=useApp(),v3=useV3Execution(),d=v3.activeDate,focus=settings.weeklyFocus||{},weekKey=mondayFor(d);
  useEffect(()=>{if(focus.weekKey!==weekKey)return;const frogIds=focus.frogIds||[],weeklyIds=focus.actionIds||[],frogTargets=focus.frogTargets||{},actionTargets=focus.actionTargets||{},current=dailyPlans[d]||{},items=Array.isArray(current.items)?current.items:[],existingFrogs=new Set(items.filter(i=>i.weeklyFrog&&i.weeklyFrogWeek===weekKey).map(i=>i.actionId)),existingWeekly=new Set(items.filter(i=>i.weeklyAction&&i.weeklyFocusWeek===weekKey).map(i=>i.actionId)),urgent=[0,5,6].includes(new Date(`${d}T12:00:00`).getDay()),make=(a,extra={})=>{const pct=getSubcategoryPriorityPercent(settings,a.category,a.subcategory);return{id:uid(),actionId:a.id,name:a.name,category:a.category,subcategory:a.subcategory||null,points:round1((Number(a.points)||0)*pct/100),basePoints:Number(a.points)||0,priorityPct:pct,minutes:Number(a.minutes)||0,type:a.type||"positive",status:"planned",createdAt:new Date().toISOString(),...extra}},withTarget=(a,target)=>({weeklyTarget:target,stackCount:a.scoringType==="per-unit"?1:target,stackDone:0,...(a.scoringType==="per-unit"?{habitAmount:target,habitUnit:a.unit||"unit"}:{})});
   const dueFrogs=frogIds.filter(id=>!existingFrogs.has(id)).map(id=>{const a=actions.find(x=>x.id===id);if(!a)return null;const target=Math.max(1,Number(frogTargets[id])||1);return make(a,{frog:true,weeklyFrog:true,weeklyFrogWeek:weekKey,weeklyFrogUrgent:urgent,...withTarget(a,target)})}).filter(Boolean);
   const dueWeekly=weeklyIds.filter(id=>!existingWeekly.has(id)).map(id=>{const a=actions.find(x=>x.id===id);if(!a)return null;const target=Math.max(1,Number(actionTargets[id])||1);return make(a,{weeklyAction:true,weeklyFocusWeek:weekKey,...withTarget(a,target)})}).filter(Boolean);
   if(dueFrogs.length||dueWeekly.length)updateDailyPlan(d,{items:[...items,...dueFrogs,...dueWeekly]});
- },[focus.weekKey,focus.frogIds,focus.frogTargets,focus.actionIds,focus.actionTargets,weekKey,d,actions,dailyPlans,settings.activePriorityProfileId]);return null}
+ },[focus.weekKey,focus.frogIds,focus.frogTargets,focus.actionIds,focus.actionTargets,weekKey,d,actions,dailyPlans,settings.activePriorityProfileId,updateDailyPlan]);return null}
