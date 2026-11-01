@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import { computePoints } from "../lib/scoring";
 import { paletteFor } from "../lib/categoryColors";
-import { applyPriorityMultiplier, getCategoryPriorityPercent } from "../lib/priorityProfiles";
+import { applyPriorityMultiplier, getSubcategoryPriorityPercent } from "../lib/priorityProfiles";
 
 const PRESETS = [10, 20, 30, 60];
 
@@ -28,9 +28,10 @@ export default function LogModal() {
   const p = paletteFor(colorId);
   const titleText = action ? action.name : `Log ${cat.name}`;
   const rate30 = action && typeof action.points === "number" ? action.points : computePoints(30, cat.type);
-  const priorityPct = getCategoryPriorityPercent(settings, cat.name);
+  const subcategory = action?.subcategory || null;
+  const priorityPct = getSubcategoryPriorityPercent(settings, cat.name, subcategory);
   const basePointsFor = (mins) => Math.round(((Number(mins) || 0) / 30) * rate30 * 10) / 10;
-  const pointsFor = (mins) => applyPriorityMultiplier(basePointsFor(mins), cat.name, settings);
+  const pointsFor = (mins) => applyPriorityMultiplier(basePointsFor(mins), cat.name, subcategory, settings);
 
   const submit = (minutes) => {
     const mins = Number(minutes);
@@ -42,6 +43,7 @@ export default function LogModal() {
       actionId: action?.id || null,
       actionName: action?.name || `${mins}m ${cat.name}`,
       category: cat.name,
+      subcategory,
       type: cat.type,
       minutes: mins,
       icon: (action && action.icon) || cat.icon,
@@ -64,7 +66,7 @@ export default function LogModal() {
             <p className="font-display font-extrabold uppercase tracking-tight text-base text-white truncate">{titleText}</p>
             <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
               {action ? `${rate30 > 0 ? "+" : ""}${rate30} base pts / 30m` : cat.type === "positive" ? "+20 base pts / hr" : "−30 base pts / hr"}
-              {` · ${priorityPct}% profile`}{cat.description ? ` · ${cat.description}` : ""}
+              {subcategory ? ` · ${subcategory}` : ""}{` · ${priorityPct}% overclock`}
             </p>
           </div>
           <button type="button" onClick={closeLogModal} data-testid="log-modal-close" className="p-2 text-neutral-400 hover:text-white" aria-label="Close"><X size={16} /></button>

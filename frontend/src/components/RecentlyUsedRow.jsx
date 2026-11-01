@@ -17,7 +17,7 @@ export default function RecentlyUsedRow() {
   const quickLog = (action) => {
     const cat = (settings.categories || []).find((c) => c.name === action.category);
     if (Number(action.minutes) > 0) { openLogModal({ actionId: action.id }); return; }
-    const entry = logActivity({ actionId: action.id, actionName: action.name, category: action.category, type: cat?.type || action.type, minutes: 0, icon: action.icon, points: applyPriorityMultiplier(typeof action.points === "number" ? action.points : 0, action.category, settings) });
+    const entry = logActivity({ actionId: action.id, actionName: action.name, category: action.category, subcategory: action.subcategory, type: cat?.type || action.type, minutes: 0, icon: action.icon, points: applyPriorityMultiplier(typeof action.points === "number" ? action.points : 0, action.category, action.subcategory, settings) });
     toast(`${action.name} logged`, { description: `${entry.points > 0 ? "+" : ""}${entry.points} pts`, action: { label: "Undo", onClick: () => deleteEntry(entry.id) }, className: "!bg-neutral-900 !border-emerald-500/30 !text-white" });
   };
 

@@ -1,37 +1,4 @@
-.App {
-    min-height: 100vh;
-    background-color: #0A0A0A;
-    color: #FFFFFF;
-}
-
-/* Hide number input spinners for cleaner look */
-.App input[type="number"]::-webkit-outer-spin-button,
-.App input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-.App input[type="number"] {
-    -moz-appearance: textfield;
-}
-
-/* Custom scrollbar (dark) */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-::-webkit-scrollbar-track {
-    background: #0A0A0A;
-}
-::-webkit-scrollbar-thumb {
-    background: #262626;
-    border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #404040;
-}
-
-/* Selection */
-::selection {
-    background: #10B981;
-    color: #000000;
-}
+.App { min-height:100vh; background-color:var(--theme-bg,#070707); color:#fff; }
+.App input[type="number"]::-webkit-outer-spin-button,.App input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.App input[type="number"]{-moz-appearance:textfield}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--theme-bg,#070707)}::-webkit-scrollbar-thumb{background:#262626;border-radius:4px}::-webkit-scrollbar-thumb:hover{background:#404040}
+::selection{background:var(--theme-primary,#dc2626);color:#fff}
