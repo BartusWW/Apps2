@@ -1,5 +1,6 @@
 // CBE Core 3.1 — deterministic daily execution state.
 // UI renders derived state and dispatches commands; lifecycle rules live here.
+import { sameOccurrence } from "./occurrenceIdentity";
 
 export const V3_SCHEMA = 3;
 export const INSTANCE_STATUS = Object.freeze({ ACTIVE:"active", COMPLETED:"completed", DISMISSED:"dismissed", MISSED:"missed", RESOLVED:"resolved" });
@@ -17,7 +18,7 @@ export const remaining=instance=>round(Math.max(0,n(instance?.target)-n(instance
 export function applyExecution(instance,amount=1,at=null){if(!instance)throw new Error("Missing instance");if(!canExecute(instance))return instance;const step=instance.mode==="quantity"?Math.max(0,n(amount)):Math.max(1,n(amount)||1),overdeliver=allowsOverdelivery(instance),progress=round(overdeliver?n(instance.progress)+step:Math.min(n(instance.target),n(instance.progress)+step)),baseComplete=n(instance.target)>0&&progress>=n(instance.target);return{...instance,progress,status:baseComplete&&!overdeliver?INSTANCE_STATUS.COMPLETED:INSTANCE_STATUS.ACTIVE,completedAt:baseComplete?(at||instance.completedAt||null):instance.completedAt}}
 export function dismissInstance(instance,at=null,reason="dismissed"){if(!instance||isTerminal(instance))return instance;return{...instance,status:INSTANCE_STATUS.DISMISSED,dismissedAt:at,dismissReason:reason}}
 export function markMissed(instance,at=null){if(!instance||isTerminal(instance))return instance;return{...instance,status:INSTANCE_STATUS.MISSED,missedAt:at}}
-export function upsertInstance(instances,candidate){const list=Array.isArray(instances)?instances:[];if(list.find(x=>x.id===candidate.id))return list;const sameOccurrence=list.find(x=>x.date===candidate.date&&x.actionId===candidate.actionId&&(x.recurringId||null)===(candidate.recurringId||null)&&(x.secondChanceFor||null)===(candidate.secondChanceFor||null));return sameOccurrence?list:[...list,candidate]}
+export function upsertInstance(instances,candidate){const list=Array.isArray(instances)?instances:[];if(list.some(x=>x.id===candidate.id||sameOccurrence(x,candidate)))return list;return[...list,candidate]}
 export function ensureScheduledInstances(instances,candidates){return(candidates||[]).reduce((acc,c)=>upsertInstance(acc,c),Array.isArray(instances)?instances:[])}
 
 // Second Chance is earned once from a missed base Habit. A Habit occurrence
