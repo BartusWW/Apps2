@@ -10,14 +10,26 @@ describe("CBE 3.1 habit definition reconciliation",()=>{
 
   test("editing a current habit target reconciles the existing occurrence without resetting progress",()=>{
     const action={id:"meditation",name:"Meditation",scoringType:"per-unit",unit:"min"};
-    const oldRule={id:"meditation-rule",actionId:"meditation",days:[0,1,2,3,4,5,6],frequency:"each",habit:{enabled:true,amount:15,unit:"min",targetHistory:[{effectiveDate:"2026-10-01",target:15}]}};
-    const newRule={...oldRule,habit:{...oldRule.habit,amount:10}};
+    const oldRule={id:"meditation-rule",actionId:"meditation",days:[0,1,2,3,4,5,6],frequency:"each",habit:{enabled:true,amount:10,unit:"min",targetHistory:[]}};
+    const newRule={...oldRule,habit:{...oldRule.habit,amount:15}};
     let state=scheduleRecurringForDate([],[oldRule],[action],"2026-11-01");
+    expect(state[0].target).toBe(10);
     state[0]={...state[0],progress:4};
     state=scheduleRecurringForDate(state,[newRule],[action],"2026-11-01");
     expect(state).toHaveLength(1);
-    expect(state[0].target).toBe(10);
+    expect(state[0].target).toBe(15);
     expect(state[0].progress).toBe(4);
+  });
+
+  test("editing a Habit target remains canonical when an occurrence already exists",()=>{
+    const action={id:"meditation",name:"Meditation",scoringType:"per-unit",unit:"min"};
+    const rule10={id:"meditation-rule",actionId:"meditation",days:[0,1,2,3,4,5,6],frequency:"each",habit:{enabled:true,amount:10,unit:"min"}};
+    const rule15={...rule10,habit:{...rule10.habit,amount:15}};
+    const first=scheduleRecurringForDate([],[rule10],[action],"2026-11-01");
+    const second=scheduleRecurringForDate(first,[rule15],[action],"2026-11-01");
+    expect(second).toHaveLength(1);
+    expect(second[0].target).toBe(15);
+    expect(second[0].recurringId).toBe("meditation-rule");
   });
 
   test("deleting and recreating a Habit for the same Action replaces stale terminal ownership",()=>{
