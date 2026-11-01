@@ -2,9 +2,9 @@ import { legacyPlanToInstances } from "./legacyAdapter";
 
 const occurrenceKey = x => [x.date,x.actionId,x.recurringId || "",x.secondChanceFor || "",x.metadata?.legacyItemId || ""].join("::");
 
-// CBE 3.1 planning ingress. This is NOT execution synchronization.
-// dailyPlans may create an occurrence and may change planning-owned fields such
-// as target/FROG/scope/overdelivery. They can never overwrite Core progress.
+// The sole legacy -> Core planning ingress. dailyPlans may create an occurrence
+// and reconcile planning-owned fields (target/FROG/scope/overdelivery), but can
+// never write execution progress or lifecycle state back into Core.
 export function ingestLegacyOccurrences(state, { dailyPlans = {}, actions = [] } = {}) {
   const incoming = legacyPlanToInstances(dailyPlans, actions);
   const current = [...(Array.isArray(state?.instances) ? state.instances : [])];
@@ -22,4 +22,3 @@ export function ingestLegacyOccurrences(state, { dailyPlans = {}, actions = [] }
   }
   return changed?{...state,instances:current}:state;
 }
-export function syncLegacyShadow(state,input={}){return ingestLegacyOccurrences(state,input);}

@@ -1,11 +1,12 @@
 import { executeCommand } from "./commands";
 import { bootstrapV3State, loadV3State, saveV3State, transactV3State } from "./storage";
 import { scheduleRecurringForDate } from "./scheduler";
-import { ingestLegacyOccurrences, syncLegacyShadow } from "./shadowSync";
+import { ingestLegacyOccurrences } from "./shadowSync";
 import { planExecutionEffect } from "./writeEffects";
 
-// Runtime is the only intended write gateway for UI code. Components dispatch
-// commands; they never mutate persisted instances directly.
+// Runtime is the only write gateway for execution state. Planning sources may
+// introduce/reconcile occurrences through ingestLegacy/schedule, but progress,
+// status and lifecycle are changed only by Core commands.
 export function createV3Runtime({ storage = globalThis?.localStorage, now = () => new Date().toISOString() } = {}) {
   const read = () => loadV3State(storage);
 
@@ -35,9 +36,6 @@ export function createV3Runtime({ storage = globalThis?.localStorage, now = () =
     return { state: afterState, effect, command: normalizedCommand };
   };
 
-  // Recurring rules create dated Core occurrences directly. A frozen day is
-  // immutable, so changing recurring settings later can never resurrect work
-  // inside an already closed date.
   const schedule = ({ date, rules = [], actions = [] } = {}) => transactV3State(
     state => state.closedDays?.[date]
       ? state
@@ -46,15 +44,11 @@ export function createV3Runtime({ storage = globalThis?.localStorage, now = () =
     now()
   );
 
-  const shadowSync = ({ dailyPlans = {}, actions = [] } = {}) => transactV3State(
-    state => syncLegacyShadow(state, { dailyPlans, actions }), storage, now()
-  );
-
   const ingestLegacy = ({ dailyPlans = {}, actions = [] } = {}) => transactV3State(
     state => ingestLegacyOccurrences(state, { dailyPlans, actions }), storage, now()
   );
 
   const replace = state => saveV3State(state, storage, now());
 
-  return { read, bootstrap, dispatch, dispatchWithEffect, schedule, shadowSync, ingestLegacy, replace };
+  return { read, bootstrap, dispatch, dispatchWithEffect, schedule, ingestLegacy, replace };
 }

@@ -15,7 +15,6 @@ export function createV3Bridge({ storage = globalThis?.localStorage, now, dailyP
     isEnabled: feature => isV3FeatureEnabled(flags(), feature),
     day: date => adapter.day(date),
     summary: date => adapter.summary(date),
-    shadowSync: runtime.shadowSync,
     ingestLegacy: runtime.ingestLegacy,
     dispatchWithEffect: input => {
       if (!isV3FeatureEnabled(flags(), "executionWrite")) return null;
