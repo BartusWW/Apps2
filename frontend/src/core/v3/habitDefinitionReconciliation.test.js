@@ -1,4 +1,4 @@
-import {createInstance,ensureScheduledInstances} from "./engine";
+import {createInstance,dismissInstance,ensureScheduledInstances} from "./engine";
 import {scheduleRecurringForDate} from "./scheduler";
 import {targetForDate} from "../../lib/habitV2";
 
@@ -18,6 +18,28 @@ describe("CBE 3.1 habit definition reconciliation",()=>{
     expect(state).toHaveLength(1);
     expect(state[0].target).toBe(10);
     expect(state[0].progress).toBe(4);
+  });
+
+  test("deleting and recreating a Habit for the same Action replaces stale terminal ownership",()=>{
+    const action={id:"meditation",name:"Meditation",scoringType:"per-unit",unit:"min"};
+    const oldRule={id:"old-meditation-rule",actionId:"meditation",days:[0,1,2,3,4,5,6],frequency:"each",habit:{enabled:true,amount:15,unit:"min"}};
+    const newRule={id:"new-meditation-rule",actionId:"meditation",days:[0,1,2,3,4,5,6],frequency:"each",habit:{enabled:true,amount:10,unit:"min"}};
+    let state=scheduleRecurringForDate([],[oldRule],[action],"2026-11-01");
+    state=[dismissInstance(state[0],"test")];
+    state=scheduleRecurringForDate(state,[newRule],[action],"2026-11-01");
+    expect(state).toHaveLength(1);
+    expect(state[0].recurringId).toBe("new-meditation-rule");
+    expect(state[0].status).toBe("active");
+    expect(state[0].target).toBe(10);
+  });
+
+  test("removed or disabled untouched recurring occurrence is unscheduled from today",()=>{
+    const action={id:"meditation",name:"Meditation",scoringType:"per-unit",unit:"min"};
+    const rule={id:"meditation-rule",actionId:"meditation",days:[0,1,2,3,4,5,6],frequency:"each",habit:{enabled:true,amount:15,unit:"min"}};
+    let state=scheduleRecurringForDate([],[rule],[action],"2026-11-01");
+    expect(state).toHaveLength(1);
+    state=scheduleRecurringForDate(state,[],[action],"2026-11-01");
+    expect(state).toHaveLength(0);
   });
 
   test("Core upsert uses canonical occurrence identity instead of a second local identity rule",()=>{
