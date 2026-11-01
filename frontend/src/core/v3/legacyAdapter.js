@@ -2,7 +2,7 @@ import { createInstance, INSTANCE_STATUS } from "./engine";
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
 const mondayFor=date=>{const d=new Date(`${date}T12:00:00`),day=d.getDay();d.setDate(d.getDate()+(day===0?-6:1-day));return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const sundayFor=date=>{const d=new Date(`${mondayFor(date)}T12:00:00`);d.setDate(d.getDate()+6);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
-const allowsOverdelivery=(action,item)=>!!item?.weeklyAction||action?.scoringType==="per-unit"||!!action?.ambition?.enabled||action?.allowOverdelivery===true;
+const allowsOverdelivery=(action,item)=>!!item?.weeklyAction||!!item?.weeklyFrog||action?.scoringType==="per-unit"||!!action?.ambition?.enabled||action?.allowOverdelivery===true;
 // In CBE 3.1, quantity/per-unit is an execution mode, not a Habit identity.
 // Habits are recurring-owned occurrences; a manual daily-plan LOG remains a task.
 const legacyKind=item=>item?.habit&&item?.recurringId?"habit":"task";
