@@ -17,13 +17,40 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, recurringTasks 
   if (!bridgeRef.current) bridgeRef.current = createV3Bridge({ storage, dailyPlans, actions });
   const bridge = bridgeRef.current;
   const [revision, setRevision] = useState(0);
+  const [activeDate, setActiveDate] = useState(() => todayISO());
 
   const refresh = useCallback(() => setRevision(x => x + 1), []);
+  const syncActiveDate = useCallback(() => {
+    const next = todayISO();
+    setActiveDate(current => current === next ? current : next);
+  }, []);
   const run = useCallback(fn => (...args) => {
     const result = fn(...args);
     if (result) refresh();
     return result;
   }, [refresh]);
+
+  // Date is part of scheduling state. A provider can stay mounted across midnight
+  // (or across a debug-clock jump), so recurring materialization must not depend
+  // on an unrelated settings/action/entry update to notice the new day.
+  useEffect(() => {
+    const check = () => syncActiveDate();
+    const timer = setInterval(check, 30000);
+    if (typeof window !== "undefined") {
+      window.addEventListener("cbe-clock-change", check);
+      window.addEventListener("focus", check);
+      document.addEventListener("visibilitychange", check);
+    }
+    check();
+    return () => {
+      clearInterval(timer);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("cbe-clock-change", check);
+        window.removeEventListener("focus", check);
+        document.removeEventListener("visibilitychange", check);
+      }
+    };
+  }, [syncActiveDate]);
 
   // Planning is one-way. New legacy plan occurrences may enter Core, but legacy
   // progress/status can never overwrite an existing Core instance.
@@ -33,12 +60,12 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, recurringTasks 
   }, [bridge, dailyPlans, actions, refresh]);
 
   // Recurring & Habits is a scheduling source, not an execution owner. Every
-  // enabled rule due today is materialized as one dated Core occurrence. The
-  // scheduler is idempotent, so settings edits/re-renders cannot duplicate it.
+  // enabled rule due on the active CBE date is materialized as one dated Core
+  // occurrence. Date changes themselves are an explicit trigger.
   useEffect(() => {
-    bridge.schedule({ date: todayISO(), rules: recurringTasks, actions });
+    bridge.schedule({ date: activeDate, rules: recurringTasks, actions });
     refresh();
-  }, [bridge, recurringTasks, actions, refresh]);
+  }, [bridge, activeDate, recurringTasks, actions, refresh]);
 
   const execute = useCallback(command => {
     const result = bridge.dispatchWithEffect({ command, actions, entries });
@@ -50,13 +77,14 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, recurringTasks 
 
   const value = useMemo(() => ({
     revision,
+    activeDate,
     flags: bridge.flags(),
     isEnabled: bridge.isEnabled,
     read: bridge.read,
     day: bridge.day,
     summary: bridge.summary,
-    today: () => bridge.day(todayISO()),
-    todaySummary: () => bridge.summary(todayISO()),
+    today: () => bridge.day(activeDate),
+    todaySummary: () => bridge.summary(activeDate),
     execute,
     log: (instanceId, amount = 1, options = {}) => execute({ type: COMMAND.LOG, instanceId, amount, ...options }),
     complete: (instanceId, options = {}) => execute({ type: COMMAND.COMPLETE, instanceId, ...options }),
@@ -65,7 +93,7 @@ export function V3ExecutionProvider({ children, dailyPlans = {}, recurringTasks 
     closeDay: run(bridge.closeDay),
     schedule: run(bridge.schedule),
     refresh,
-  }), [bridge, revision, execute, run, refresh]);
+  }), [bridge, revision, activeDate, execute, run, refresh]);
 
   return <V3ExecutionContext.Provider value={value}>{children}</V3ExecutionContext.Provider>;
 }
